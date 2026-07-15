@@ -1,0 +1,165 @@
+/* ============================================================
+   CUMBRE — Vocabulaire avancé (B1-C1) : thèmes élargis + idiomes
+   [ES, FR, exemple ES, thème]
+   ============================================================ */
+window.VOCAB = window.VOCAB.concat([
+
+  // --- Technologie ---
+  ["la pantalla", "l'écran", "Paso muchas horas frente a la pantalla.", "Tecnología"],
+  ["el ordenador", "l'ordinateur", "Mi ordenador va muy lento.", "Tecnología"],
+  ["la contraseña", "le mot de passe", "He olvidado la contraseña.", "Tecnología"],
+  ["descargar", "télécharger", "Descargué la aplicación ayer.", "Tecnología"],
+  ["actualizar", "mettre à jour", "Tienes que actualizar el sistema.", "Tecnología"],
+  ["el enlace", "le lien", "Haz clic en el enlace.", "Tecnología"],
+  ["la red social", "le réseau social", "No uso mucho las redes sociales.", "Tecnología"],
+  ["el archivo", "le fichier", "Guarda el archivo en la nube.", "Tecnología"],
+  ["la aplicación", "l'application", "Esta aplicación es muy útil.", "Tecnología"],
+  ["navegar", "naviguer (internet)", "Navego por internet cada día.", "Tecnología"],
+  ["el correo electrónico", "le courriel", "Te lo mando por correo electrónico.", "Tecnología"],
+  ["el usuario", "l'utilisateur", "Escribe tu nombre de usuario.", "Tecnología"],
+
+  // --- Environnement ---
+  ["el medio ambiente", "l'environnement", "Hay que proteger el medio ambiente.", "Medioambiente"],
+  ["el cambio climático", "le changement climatique", "El cambio climático es una amenaza.", "Medioambiente"],
+  ["el reciclaje", "le recyclage", "El reciclaje es fundamental.", "Medioambiente"],
+  ["reciclar", "recycler", "Reciclamos el vidrio y el papel.", "Medioambiente"],
+  ["los residuos", "les déchets", "Hay que reducir los residuos.", "Medioambiente"],
+  ["la contaminación", "la pollution", "La contaminación afecta a la salud.", "Medioambiente"],
+  ["la sequía", "la sécheresse", "La sequía ha afectado a las cosechas.", "Medioambiente"],
+  ["sostenible", "durable, soutenable", "Buscamos un modelo sostenible.", "Medioambiente"],
+  ["la basura", "les ordures, la poubelle", "Saca la basura, por favor.", "Medioambiente"],
+  ["contaminar", "polluer", "Los coches contaminan mucho.", "Medioambiente"],
+  ["el calentamiento global", "le réchauffement climatique", "El calentamiento global avanza.", "Medioambiente"],
+  ["ahorrar energía", "économiser l'énergie", "Apaga la luz para ahorrar energía.", "Medioambiente"],
+
+  // --- Société & politique ---
+  ["el gobierno", "le gouvernement", "El gobierno anunció nuevas medidas.", "Sociedad"],
+  ["las elecciones", "les élections", "Las elecciones son en mayo.", "Sociedad"],
+  ["votar", "voter", "Voté por primera vez.", "Sociedad"],
+  ["el partido", "le parti (politique)", "Es de un partido de izquierda.", "Sociedad"],
+  ["la ley", "la loi", "El parlamento aprobó la ley.", "Sociedad"],
+  ["el ciudadano", "le citoyen", "Todo ciudadano tiene derechos.", "Sociedad"],
+  ["la manifestación", "la manifestation", "Miles de personas fueron a la manifestación.", "Sociedad"],
+  ["la igualdad", "l'égalité", "Luchan por la igualdad.", "Sociedad"],
+  ["los derechos", "les droits", "Defiende los derechos humanos.", "Sociedad"],
+  ["el impuesto", "l'impôt", "Subieron los impuestos.", "Sociedad"],
+  ["el paro", "le chômage", "El paro ha bajado este año.", "Sociedad"],
+  ["la huelga", "la grève", "Los trabajadores están en huelga.", "Sociedad"],
+
+  // --- Économie & travail ---
+  ["el mercado", "le marché", "El mercado laboral es difícil.", "Economía"],
+  ["la inversión", "l'investissement", "Es una inversión arriesgada.", "Economía"],
+  ["invertir", "investir", "Invirtió en una empresa nueva.", "Economía"],
+  ["el presupuesto", "le budget", "El presupuesto es limitado.", "Economía"],
+  ["los beneficios", "les bénéfices", "La empresa duplicó sus beneficios.", "Economía"],
+  ["la deuda", "la dette", "Consiguió pagar toda su deuda.", "Economía"],
+  ["el crecimiento", "la croissance", "El crecimiento económico se ralentiza.", "Economía"],
+  ["la crisis", "la crise", "La crisis afectó a muchos.", "Economía"],
+  ["el emprendedor", "l'entrepreneur", "Es un emprendedor con talento.", "Economía"],
+  ["la factura", "la facture", "Tengo que pagar la factura de la luz.", "Economía"],
+  ["el ahorro", "l'épargne", "Gastó todos sus ahorros.", "Economía"],
+  ["la bolsa", "la bourse ; le sac", "Las acciones subieron en bolsa.", "Economía"],
+
+  // --- Santé (plus) ---
+  ["la enfermedad", "la maladie", "Es una enfermedad grave.", "Salud"],
+  ["el tratamiento", "le traitement", "El tratamiento dura seis meses.", "Salud"],
+  ["la vacuna", "le vaccin", "Me puse la vacuna ayer.", "Salud"],
+  ["curarse", "guérir", "Se curó rápidamente.", "Salud"],
+  ["engordar", "grossir", "He engordado en invierno.", "Salud"],
+  ["adelgazar", "maigrir", "Quiere adelgazar unos kilos.", "Salud"],
+  ["el bienestar", "le bien-être", "Cuida su bienestar físico y mental.", "Salud"],
+  ["la baja", "l'arrêt maladie", "Está de baja por una lesión.", "Salud"],
+  ["el análisis", "l'analyse (médicale)", "Me hicieron un análisis de sangre.", "Salud"],
+  ["agotado", "épuisé", "Termino el día agotado.", "Salud"],
+
+  // --- Études & culture ---
+  ["la asignatura", "la matière (scolaire)", "Mi asignatura favorita es historia.", "Educación"],
+  ["aprobar", "réussir (un examen)", "Aprobé el examen con un ocho.", "Educación"],
+  ["suspender", "échouer, rater", "Suspendió las matemáticas.", "Educación"],
+  ["matricularse", "s'inscrire", "Me matriculé en la universidad.", "Educación"],
+  ["la carrera", "les études sup. ; la course", "Estudia una carrera de Derecho.", "Educación"],
+  ["el aprendizaje", "l'apprentissage", "El aprendizaje requiere tiempo.", "Educación"],
+  ["el cuadro", "le tableau (peinture)", "Un cuadro de Velázquez.", "Cultura"],
+  ["la obra", "l'œuvre ; le chantier", "Es la mejor obra del autor.", "Cultura"],
+  ["el estreno", "la première, la sortie", "El estreno es este viernes.", "Cultura"],
+  ["el personaje", "le personnage", "El personaje principal es un detective.", "Cultura"],
+  ["la trama", "l'intrigue", "La trama tiene un giro sorprendente.", "Cultura"],
+  ["el rodaje", "le tournage", "El rodaje duró tres meses.", "Cultura"],
+
+  // --- Verbes B2-C1 ---
+  ["fomentar", "favoriser, encourager", "El programa fomenta la lectura.", "Verbos B2"],
+  ["destacar", "souligner, se distinguer", "Cabe destacar su esfuerzo.", "Verbos B2"],
+  ["suponer", "supposer, impliquer", "Eso supone un gran cambio.", "Verbos B2"],
+  ["plantear", "poser, soulever (une question)", "Planteó una duda interesante.", "Verbos B2"],
+  ["asumir", "assumer, prendre en charge", "Asumió toda la responsabilidad.", "Verbos B2"],
+  ["llevar a cabo", "mener à bien, réaliser", "Llevaron a cabo el proyecto.", "Verbos B2"],
+  ["superar", "surmonter, dépasser", "Superó todos los obstáculos.", "Verbos B2"],
+  ["impulsar", "impulser, stimuler", "Las ayudas impulsan la economía.", "Verbos B2"],
+  ["rechazar", "rejeter, refuser", "Rechazó la oferta de trabajo.", "Verbos B2"],
+  ["señalar", "signaler, indiquer", "El estudio señala varios riesgos.", "Verbos B2"],
+  ["acudir", "se rendre, venir", "Acudió a la reunión sin avisar.", "Verbos B2"],
+  ["garantizar", "garantir", "No puedo garantizar el resultado.", "Verbos B2"],
+  ["advertir", "avertir, remarquer", "Le advertí del peligro.", "Verbos B2"],
+  ["fingir", "feindre, faire semblant", "Fingió no haberlo oído.", "Verbos B2"],
+
+  // --- Adjectifs B2-C1 ---
+  ["eficaz", "efficace", "Es un método muy eficaz.", "Adjetivos B2"],
+  ["acertado", "juste, pertinent", "Fue una decisión acertada.", "Adjetivos B2"],
+  ["rentable", "rentable", "El negocio es muy rentable.", "Adjetivos B2"],
+  ["asequible", "abordable, accessible", "Es un precio asequible.", "Adjetivos B2"],
+  ["llamativo", "voyant, frappant", "Lleva un abrigo muy llamativo.", "Adjetivos B2"],
+  ["polémico", "polémique", "Es un tema muy polémico.", "Adjetivos B2"],
+  ["fiable", "fiable", "Es una fuente fiable.", "Adjetivos B2"],
+  ["duradero", "durable", "Buscamos una solución duradera.", "Adjetivos B2"],
+  ["previsto", "prévu", "Todo salió según lo previsto.", "Adjetivos B2"],
+  ["ajeno", "étranger, d'autrui", "No te metas en asuntos ajenos.", "Adjetivos B2"],
+  ["imprescindible", "indispensable", "Tu ayuda es imprescindible.", "Adjetivos B2"],
+  ["cotidiano", "quotidien", "Forma parte de la vida cotidiana.", "Adjetivos B2"],
+
+  // --- Connecteurs C1 ---
+  ["asimismo", "de même, par ailleurs", "Asimismo, conviene revisar el plan.", "Conectores C1"],
+  ["en cambio", "en revanche", "Él es tímido; ella, en cambio, es abierta.", "Conectores C1"],
+  ["por el contrario", "au contraire", "No mejoró; por el contrario, empeoró.", "Conectores C1"],
+  ["dado que", "étant donné que", "Dado que llueve, nos quedamos.", "Conectores C1"],
+  ["a raíz de", "à la suite de", "A raíz del escándalo, dimitió.", "Conectores C1"],
+  ["cabe destacar", "il convient de souligner", "Cabe destacar el buen trabajo.", "Conectores C1"],
+  ["pese a", "malgré", "Pese a la lluvia, salimos.", "Conectores C1"],
+  ["de ahí que", "d'où le fait que", "Llovía; de ahí que no saliéramos.", "Conectores C1"],
+  ["en resumidas cuentas", "en fin de compte", "En resumidas cuentas, aceptó.", "Conectores C1"],
+  ["a fin de que", "afin que", "Te lo explico a fin de que lo entiendas.", "Conectores C1"],
+
+  // --- Idiomes / expressions ---
+  ["estar en las nubes", "être dans la lune", "Está siempre en las nubes.", "Modismos"],
+  ["costar un ojo de la cara", "coûter les yeux de la tête", "Ese coche cuesta un ojo de la cara.", "Modismos"],
+  ["no tener pelos en la lengua", "ne pas mâcher ses mots", "María no tiene pelos en la lengua.", "Modismos"],
+  ["tomar el pelo", "se moquer, faire marcher", "¿Me estás tomando el pelo?", "Modismos"],
+  ["echar una mano", "donner un coup de main", "¿Me echas una mano?", "Modismos"],
+  ["estar hecho polvo", "être crevé", "Después del viaje estoy hecho polvo.", "Modismos"],
+  ["meter la pata", "faire une gaffe", "Metí la pata delante de todos.", "Modismos"],
+  ["ser pan comido", "être du gâteau", "El examen fue pan comido.", "Modismos"],
+  ["ponerse las pilas", "s'y mettre sérieusement", "Ponte las pilas, queda poco tiempo.", "Modismos"],
+  ["dar en el clavo", "taper dans le mille", "Con ese comentario diste en el clavo.", "Modismos"],
+
+  // --- Faux-amis (plus) ---
+  ["la ilusión", "l'enthousiasme, l'espoir (≠ illusion = el espejismo)", "Me hace mucha ilusión verte.", "Falsos amigos"],
+  ["el disgusto", "la contrariété, la peine (≠ dégoût = el asco)", "Se llevó un gran disgusto.", "Falsos amigos"],
+  ["la firma", "la signature ; l'entreprise (≠ ferme = la granja)", "Falta tu firma en el contrato.", "Falsos amigos"],
+  ["demandar", "poursuivre en justice (≠ demander = pedir)", "Lo demandó por difamación.", "Falsos amigos"],
+  ["soportar", "supporter, tolérer (≠ soutenir = apoyar)", "No soporto el ruido.", "Falsos amigos"],
+  ["el suceso", "l'événement, le fait divers (≠ succès = el éxito)", "La prensa habló del suceso.", "Falsos amigos"],
+  ["la lentilla", "la lentille de contact (≠ lentille = la lenteja)", "Perdí una lentilla.", "Falsos amigos"],
+  ["el compromiso", "l'engagement (≠ compromis = el acuerdo)", "Asumió un compromiso serio.", "Falsos amigos"],
+
+  // --- Erreurs fréquentes (plus) : toujours la BONNE forme ---
+  ["echar de menos a alguien", "manquer à qqn (« te echo de menos » = tu me manques)", "Echo de menos a mi familia.", "Errores frecuentes"],
+  ["tener ganas de + infinitivo", "avoir envie de (faire)", "Tengo ganas de viajar.", "Errores frecuentes"],
+  ["dar igual", "être égal (comme gustar)", "Me da igual, decide tú.", "Errores frecuentes"],
+  ["hacer falta", "falloir, manquer", "Hace falta más tiempo.", "Errores frecuentes"],
+  ["estar de acuerdo con", "être d'accord avec", "Estoy de acuerdo contigo.", "Errores frecuentes"],
+  ["la mayoría + verbo singular", "la majorité (verbe au singulier)", "La mayoría prefiere quedarse.", "Errores frecuentes"],
+  ["ir a pie / andando", "aller à pied", "Voy al trabajo andando.", "Errores frecuentes"],
+  ["por la noche", "le soir, la nuit", "Estudio por la noche.", "Errores frecuentes"],
+  ["pensar de vs pensar en", "penser de (opinion) / penser à", "¿Qué piensas de esto?", "Errores frecuentes"],
+  ["quedarse con", "garder", "Quédate con el cambio.", "Errores frecuentes"]
+
+]);
