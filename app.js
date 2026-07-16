@@ -443,6 +443,145 @@ function renderHome() {
 }
 
 /* ---------- GRAMMAIRE : liste ---------- */
+/* ============================================================
+   MIX GRAMMAIRE — rebrasse les leçons validées + les traductions liées
+   ============================================================ */
+// Correspondance leçon → catégories de traduction portant sur le même point
+const LESSON_TRANS = {
+  serestar: ['Ser/Estar'], serestaravz: ['Ser/Estar'],
+  gustar: ['Gustar & pronoms'], pronombres: ['Gustar & pronoms'],
+  pasados: ['Passé'], perfindef: ['Passé'],
+  futcond: ['Futur/Conditionnel'],
+  porpara: ['Por/Para'],
+  subjpres: ['Subjonctif'], subjtrig: ['Subjonctif'], subjcontraste: ['Subjonctif'],
+  sicond: ['Hypothèse C1'],
+  imperativo: ['Impératif'],
+  cambio: ['Verbos & régime'], regimen: ['Verbos & régime'], perifrasis: ['Verbos & régime'],
+  estiloindirecto: [], pasivase: [], conectores: []
+};
+function doneLessons() { return LESSONS.filter(l => S.lessons[l.id] && S.lessons[l.id].done); }
+function buildMix(n) {
+  n = n || 12;
+  const done = doneLessons();
+  const mcq = [];
+  done.forEach(l => l.q.forEach(q => mcq.push({
+    type: 'mcq', lessonTitle: l.title, stem: q[0], opts: q[1], correct: q[2], expl: q[3]
+  })));
+  const cats = new Set();
+  done.forEach(l => (LESSON_TRANS[l.id] || []).forEach(c => cats.add(c)));
+  const tr = [];
+  TRANSLATIONS.forEach((t, i) => { if (cats.has(t.cat)) tr.push({ type: 'trad', idx: i, t }); });
+  shuffle(mcq); shuffle(tr);
+  const nTr = Math.min(tr.length, Math.round(n * 0.3));
+  const nMcq = Math.min(mcq.length, n - nTr);
+  return shuffle(mcq.slice(0, nMcq).concat(tr.slice(0, nTr)));
+}
+
+let MIX = null;
+function startMix() {
+  const items = buildMix(12);
+  if (!items.length) { toast('Valide d\'abord une leçon 🙂'); return; }
+  MIX = { items, i: 0, correct: 0, total: 0, answered: false };
+  renderMix();
+}
+function renderMix() {
+  if (MIX.i >= MIX.items.length) return finishMix();
+  const it = MIX.items[MIX.i];
+  MIX.answered = false;
+  const head = `
+    <div class="qmeta">
+      <span>🔀 Mix · ${it.type === 'mcq' ? it.lessonTitle : 'traduction — ' + it.t.cat}</span>
+      <span>${MIX.i + 1} / ${MIX.items.length}</span>
+    </div>
+    <div class="pbar mb"><i style="width:${MIX.i / MIX.items.length * 100}%"></i></div>`;
+  if (it.type === 'mcq') {
+    app.innerHTML = head + `
+      <div class="stem">${it.stem.replace('______', '<span class="blank">______</span>')}</div>
+      <div id="opts">${it.opts.map((o, k) =>
+        `<button class="opt" onclick="mixAnswer(${k})"><span class="lab">${'ABCD'[k]}</span>${o}</button>`).join('')}</div>
+      <div id="after"></div>
+      <div class="mt"><button class="btn ghost" onclick="setView('grammar')">Quitter</button></div>`;
+  } else {
+    app.innerHTML = head + `
+      <div class="transfr">${it.t.fr}</div>
+      <textarea id="mix-in" class="transinput" rows="2" placeholder="Écris ta traduction en espagnol (facultatif)…"></textarea>
+      <button class="btn" onclick="revealMixTrad()">Voir la correction</button>
+      <div class="mt"><button class="btn ghost" onclick="setView('grammar')">Quitter</button></div>`;
+  }
+  window.scrollTo(0, 0);
+}
+function mixAnswer(k) {
+  if (MIX.answered) return;
+  MIX.answered = true;
+  const it = MIX.items[MIX.i];
+  document.querySelectorAll('#opts .opt').forEach((b, idx) => {
+    b.setAttribute('disabled', '');
+    if (idx === it.correct) b.classList.add('good');
+    else if (idx === k) b.classList.add('bad');
+    else b.classList.add('dim');
+  });
+  const ok = k === it.correct;
+  MIX.total++;
+  if (ok) { MIX.correct++; addXp(4); }
+  else recordMistake({ kind: 'gram', q: it.stem, opts: it.opts, correct: it.correct, expl: it.expl, cat: 'Mix · ' + it.lessonTitle });
+  const last = MIX.i === MIX.items.length - 1;
+  document.getElementById('after').innerHTML = `
+    <div class="expl ${ok ? 'ok' : 'no'}">${ok ? '✅ Correct. ' : '❌ Réponse : ' + 'ABCD'[it.correct] + '. '}${it.expl}</div>
+    <button class="btn mt" onclick="${last ? 'finishMix()' : 'nextMix()'}">${last ? 'Résultat' : 'Suivant'}</button>`;
+  document.getElementById('after').scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+function revealMixTrad() {
+  if (MIX.answered) return;
+  MIX.answered = true;
+  const it = MIX.items[MIX.i], t = it.t;
+  const mine = (document.getElementById('mix-in') || {}).value || '';
+  const mineHtml = mine.trim() ? `<div class="trans-mine"><div class="lbl">Ta réponse</div>${escapeHtml(mine.trim())}</div>` : '';
+  const altHtml = (t.alt && t.alt.length)
+    ? `<div class="trans-alt">Aussi correct : ${t.alt.map(a => '« ' + escapeHtml(a) + ' »').join(' · ')}</div>` : '';
+  const esEsc = t.en.replace(/'/g, "\\'");
+  const last = MIX.i === MIX.items.length - 1;
+  app.innerHTML = `
+    <div class="qmeta"><span>🔀 Mix · traduction — ${t.cat}</span><span>${MIX.i + 1} / ${MIX.items.length}</span></div>
+    <div class="transfr small">${t.fr}</div>
+    ${mineHtml}
+    <div class="trans-model">
+      <div class="lbl">Correction idiomatique <button class="spk sm" onclick="speak('${esEsc}')" title="Écouter l'espagnol">🔊</button></div>
+      <div class="en">${t.en}</div>
+      ${altHtml}
+    </div>
+    <div class="expl" style="border-color:var(--purple)"><b>${t.point}</b><br>${t.note}</div>
+    <div class="sub center mt mb">Sans regarder, tu l'avais ?</div>
+    <div class="row2">
+      <button class="btn sec" style="color:var(--bad)" onclick="rateMixTrad(0)">Raté</button>
+      <button class="btn sec" style="color:var(--good)" onclick="rateMixTrad(1)">Je l'avais</button>
+    </div>
+    <div class="mt"><button class="btn ghost" onclick="${last ? 'finishMix()' : 'nextMix()'}">${last ? 'Résultat' : 'Passer'}</button></div>`;
+  window.scrollTo(0, 0);
+}
+function rateMixTrad(ok) {
+  const it = MIX.items[MIX.i];
+  rateTrans(it.idx, ok ? 2 : 0);   // nourrit la répétition espacée des traductions
+  MIX.total++;
+  if (ok) { MIX.correct++; addXp(6); }
+  bumpDaily('trans');
+  MIX.i >= MIX.items.length - 1 ? finishMix() : nextMix();
+}
+function nextMix() { MIX.i++; renderMix(); }
+function finishMix() {
+  const pct = MIX.total ? Math.round(MIX.correct / MIX.total * 100) : 0;
+  markStudy(); touchDay(); save();
+  app.innerHTML = `
+    <div class="card big">
+      <div class="em">${pct >= 85 ? '🏆' : pct >= 60 ? '🔀' : '💪'}</div>
+      <div class="score" style="color:${pct >= 70 ? 'var(--good)' : 'var(--accent)'}">${pct}%</div>
+      <div class="lab">${MIX.correct} / ${MIX.total} sur le mix</div>
+      <div class="mt sub">${pct >= 85 ? 'Tes leçons sont vraiment ancrées.' : 'Les ratés sont partis dans « Mes erreurs » — rejoue-les.'}</div>
+    </div>
+    <button class="btn" onclick="startMix()">Refaire un mix</button>
+    <button class="btn ghost mt" onclick="setView('grammar')">Retour aux leçons</button>`;
+  window.scrollTo(0, 0);
+}
+
 function renderGrammarList() {
   const rows = LESSONS.map((l, idx) => {
     const st = S.lessons[l.id];
@@ -456,11 +595,25 @@ function renderGrammarList() {
         <div class="sc ${best >= 70 ? 'pass' : ''}">${best != null ? best + '%' : ''}</div>
       </div>`;
   }).join('');
+  const done = doneLessons();
+  const nCats = new Set();
+  done.forEach(l => (LESSON_TRANS[l.id] || []).forEach(c => nCats.add(c)));
+  const nTrad = TRANSLATIONS.filter(t => nCats.has(t.cat)).length;
+  const mixCard = `
+    <div class="card" style="border-color:var(--accent)">
+      <h2 style="font-size:16px">🔀 Mix grammaire</h2>
+      <div class="sub">Un entraînement mélangé : des questions tirées de tes leçons <b style="color:var(--txt)">déjà validées</b>${nTrad ? ` + des <b style="color:var(--txt)">phrases à traduire</b> sur ces mêmes points` : ''}. C'est le rebrassage qui ancre vraiment.</div>
+      ${done.length
+        ? `<button class="btn mt" onclick="startMix()">Démarrer le mix · 12 questions</button>
+           <div class="sub center mt">${done.length} leçon(s) validée(s)${nTrad ? ` · ${nTrad} traduction(s) liée(s)` : ''}</div>`
+        : `<div class="sub mt" style="color:var(--dim)">🔒 Valide au moins une leçon pour débloquer le mix.</div>`}
+    </div>`;
   app.innerHTML = `
     <div class="card">
-      <h2>Grammaire — Part 5</h2>
+      <h2>Grammaire</h2>
       <div class="sub">Valide une leçon (≥ 70 %) pour débloquer la suivante. Chaque bonne réponse rapporte de l'XP.</div>
     </div>
+    ${mixCard}
     ${rows}
   `;
 }
