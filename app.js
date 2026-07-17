@@ -58,6 +58,23 @@ function checkDailyDone() {
   }
 }
 
+/* Transfert de progression entre conteneurs de stockage (PWA installée vs Safari
+   vs autre appareil : iOS isole le localStorage de chaque contexte — même URL,
+   progression différente). ?restore=<base64> importe tout l'état puis nettoie l'URL. */
+(function () { try {
+  const p = new URLSearchParams(location.search).get('restore'); if (!p) return;
+  let b = p.replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '=';
+  const obj = JSON.parse(decodeURIComponent(escape(atob(b))));
+  if (obj && typeof obj === 'object' && obj.cards !== undefined) localStorage.setItem('tcumbre', JSON.stringify(obj));
+  history.replaceState(null, '', location.pathname);
+} catch (e) {} })();
+function transferLink() {
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(S)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const url = location.origin + location.pathname + '?restore=' + b64;
+  const done = () => toast('📦 Lien copié — ouvre-le là où tu veux retrouver ta progression (Safari, PWA, autre appareil)');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, () => prompt('Copie ce lien :', url));
+  else prompt('Copie ce lien :', url);
+}
 let S = load();
 function load() {
   try {
@@ -133,11 +150,13 @@ function totalUnlearned() {
   for (const i of VOCAB_ORDER) if (!S.cards[i] || !S.cards[i].introduced) n++;
   return n;
 }
+const WAVE = 25; // taille d'une vague en mode sans plafond
 function buildQueue(unlimited) {
-  // révisions d'abord, puis nouvelles cartes (illimité = sans plafond quotidien)
-  const q = dueCards();
-  const news = newAvailable(unlimited);
-  return q.concat(news);
+  // révisions d'abord, puis nouvelles cartes.
+  // Sans plafond quotidien : on sert par VAGUES de 25 — une file de 300 cartes
+  // affichée d'un coup décourage et ne fait rien apprendre de plus.
+  const q = dueCards().concat(newAvailable(unlimited));
+  return unlimited ? q.slice(0, WAVE) : q;
 }
 // File d'un thème précis (révisions dues + toutes les nouvelles du thème, sans plafond)
 function buildThemeQueue(theme) {
@@ -732,10 +751,10 @@ function renderAnkiHome() {
     </div>
 
     <div class="card" style="border-color:var(--accent)">
-      <h2 style="font-size:16px">♾️ Mode illimité</h2>
-      <div class="sub">Enchaîne autant de cartes que tu veux, sans plafond quotidien — parfait pour bûcher un maximum de mots d'un coup. Ils resteront ensuite planifiés normalement.</div>
+      <h2 style="font-size:16px">🌊 Par vagues de ${WAVE}</h2>
+      <div class="sub">Sans plafond quotidien, mais par vagues digestes : ${WAVE} cartes, tu souffles, tu enchaînes si tu veux. Une carte ratée revient quelques cartes plus loin, dans la même vague, jusqu'à ce qu'elle tienne.</div>
       <button class="btn mt sec" style="border-color:var(--accent);color:var(--accent)" onclick="startReview(true)" ${unlimitedTotal === 0 ? 'disabled' : ''}>
-        ${unlimitedTotal === 0 ? 'Tout est appris 🏆' : `Session illimitée · ${unlimitedTotal} carte(s)`}
+        ${unlimitedTotal === 0 ? 'Tout est appris 🏆' : `Lancer une vague · ${Math.min(WAVE, unlimitedTotal)} carte(s) sur ${unlimitedTotal}`}
       </button>
       <div class="sub center mt">${remaining} mot(s) encore jamais vus</div>
     </div>
@@ -746,6 +765,7 @@ function renderAnkiHome() {
       <h2 style="font-size:15px">Thèmes (${Object.keys(themes).length}) · touche pour réviser</h2>
       <div class="segwrap mt">${themeHtml}</div>
     </div>
+    <button class="btn ghost" onclick="transferLink()">📦 Transférer ma progression (lien à ouvrir ailleurs)</button>
     ${learnedCount() > 0 ? `<button class="btn ghost" onclick="resetCardsConfirm()">Réinitialiser la progression des cartes</button>` : ''}
   `;
 }
@@ -864,8 +884,9 @@ function doRate(rating) {
   rateCard(i, rating);
   R.reviewed++;
   bumpDaily('cards');
-  // "Encore" : on remet la carte plus loin dans la file de la session
-  if (rating === 0) R.queue.push(i);
+  // "Encore" : la carte revient 4 positions plus loin — pas en fin de file,
+  // où elle mettrait une heure à repasser dans une grosse session
+  if (rating === 0) R.queue.splice(Math.min(R.pos + 5, R.queue.length), 0, i);
   R.pos++;
   touchDay();
   renderCard();
@@ -882,7 +903,9 @@ function finishReview() {
     <button class="btn" onclick="setView('anki')">Terminé</button>
     ${R.theme
       ? (buildThemeQueue(R.theme).length ? `<button class="btn sec mt" onclick="startThemeReview('${R.theme}')">Continuer « ${R.theme} » (${buildThemeQueue(R.theme).length})</button>` : '')
-      : (buildQueue(R.unlimited).length ? `<button class="btn sec mt" onclick="startReview(${R.unlimited})">Continuer (${buildQueue(R.unlimited).length})</button>` : '')}
+      : R.unlimited
+      ? ((dueCards().length + totalUnlearned()) ? `<button class="btn sec mt" onclick="startReview(true)">🌊 Vague suivante · ${dueCards().length + totalUnlearned()} restante(s)</button>` : '')
+      : (buildQueue(false).length ? `<button class="btn sec mt" onclick="startReview(false)">Continuer (${buildQueue(false).length})</button>` : '')}
   `;
 }
 function resetCardsConfirm() {
