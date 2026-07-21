@@ -627,13 +627,65 @@ function renderGrammarList() {
            <div class="sub center mt">${done.length} leçon(s) validée(s)${nTrad ? ` · ${nTrad} traduction(s) liée(s)` : ''}</div>`
         : `<div class="sub mt" style="color:var(--dim)">🔒 Valide au moins une leçon pour débloquer le mix.</div>`}
     </div>`;
+  const tensesCard = `
+    <div class="card" style="border-color:var(--blue)">
+      <h2 style="font-size:16px">📖 Les temps · conjugaisons</h2>
+      <div class="sub">La référence complète : formation, verbes modèles, irréguliers clés et exemples traduits — impératif, subjonctif imparfait, hypothèses… Consultable à tout moment, sans quiz.</div>
+      <button class="btn sec mt" onclick="renderTensesList()">Ouvrir la référence · ${TENSES.length} temps</button>
+    </div>`;
   app.innerHTML = `
     <div class="card">
       <h2>Grammaire</h2>
       <div class="sub">Valide une leçon (≥ 70 %) pour débloquer la suivante. Chaque bonne réponse rapporte de l'XP.</div>
     </div>
+    ${tensesCard}
     ${mixCard}
     ${rows}
+  `;
+}
+
+/* ---------- RÉFÉRENCE : Les temps (conjugaisons) ---------- */
+function tenseHTML(t) {
+  let h = `<div class="expl mt" style="border-color:var(--blue)"><b>Quand l'utiliser</b><br>${t.when}</div>`;
+  if (t.formation) h += `<div class="tsec"><div class="th">🔧 Formation</div><div class="tirr">${t.formation}</div></div>`;
+  if (t.models && t.models.length) {
+    h += `<div class="tsec"><div class="th">📋 Conjugaison</div><div class="cleg">yo · tú · él/ella · nosotros · vosotros · ellos</div>`;
+    t.models.forEach(([inf, forms]) => { h += `<div class="cv"><b>${inf}</b><span>${forms}</span></div>`; });
+    h += `</div>`;
+  }
+  if (t.extra) h += `<div class="tsec">${t.extra}</div>`;
+  if (t.irregulars) h += `<div class="tsec"><div class="th">⚠️ Irréguliers clés</div><div class="tirr">${t.irregulars}</div></div>`;
+  if (t.examples) h += `<div class="tsec"><div class="th">💬 Exemples</div>${t.examples.map(([es, fr]) => `<div class="exs"><span class="es">${es}</span><span class="fr">${fr}</span></div>`).join('')}</div>`;
+  return h;
+}
+function renderTensesList() {
+  window.scrollTo(0, 0);
+  const rows = TENSES.map(t => `
+    <div class="lrow" onclick="renderTense('${t.id}')">
+      <div class="n">📖</div>
+      <div class="info"><div class="tt">${t.name}</div><div class="tg">${t.tag}</div></div>
+      <div class="sc">›</div>
+    </div>`).join('');
+  app.innerHTML = `
+    <div class="card">
+      <h2>Les temps · conjugaisons</h2>
+      <div class="sub">Formation, verbes modèles, irréguliers et exemples complets. Touche un temps pour le détail.</div>
+    </div>
+    ${rows}
+    <button class="btn ghost mt" onclick="setView('grammar')">Retour à la grammaire</button>
+  `;
+}
+function renderTense(id) {
+  const t = TENSES.find(x => x.id === id);
+  if (!t) return renderTensesList();
+  window.scrollTo(0, 0);
+  app.innerHTML = `
+    <div class="card">
+      <div class="pill warn">${t.tag}</div>
+      <h2 class="mt">${t.name}</h2>
+      ${tenseHTML(t)}
+    </div>
+    <button class="btn ghost mt" onclick="renderTensesList()">← Tous les temps</button>
   `;
 }
 
@@ -848,7 +900,10 @@ function renderCard() {
   const i = R.queue[R.pos];
   const en = VOCAB[i][0], ex = VOCAB[i][2], theme = VOCAB[i][3];
   const frSplit = splitGloss(VOCAB[i][1]);
-  const fr = frSplit.core, gloss = frSplit.note;
+  const fr = frSplit.core;
+  // note affichée UNIQUEMENT au reveal : faux-amis (splitGloss) + éventuel 5ᵉ champ
+  // explicite (ex. usage ser/estar d'un adjectif) — jamais d'indice au recto.
+  const gloss = [frSplit.note, VOCAB[i][4] || ''].filter(Boolean).join('<br>');
   const isNew = !S.cards[i] || !S.cards[i].introduced;
   // Sens tiré au hasard : produire l’espagnol OU le français
   R.dir = Math.random() < 0.5 ? 'en2fr' : 'fr2en';

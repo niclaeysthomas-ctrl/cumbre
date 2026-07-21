@@ -76,7 +76,7 @@ window.VOCAB = window.VOCAB.concat([
   ["generoso", "généreux", "Fue muy generoso conmigo.", "Carácter"],
   ["celoso", "jaloux", "Es un poco celoso.", "Carácter"],
   ["agobiado", "débordé, stressé", "Estoy agobiado con tanto trabajo.", "Carácter"],
-  ["orgulloso", "fier ; orgueilleux", "Estoy orgulloso de mis hijos.", "Carácter"],
+  ["orgulloso", "fier ; orgueilleux", "Estoy orgulloso de mis hijos.", "Carácter", "ser orgulloso = orgueilleux (défaut) · estar orgulloso de = fier de"],
   ["torpe", "maladroit", "Soy muy torpe con las manos.", "Carácter"],
   ["astuto", "rusé, malin", "Es un negociador astuto.", "Carácter"],
 
@@ -104,7 +104,7 @@ window.VOCAB = window.VOCAB.concat([
   ["cutre", "miteux, cheap", "El bar era un poco cutre.", "Adjetivos B2"],
   ["tenaz", "tenace", "Es una persona tenaz.", "Adjetivos B2"],
   ["disparatado", "absurde, insensé", "Es una idea disparatada.", "Adjetivos B2"],
-  ["dispuesto", "prêt, disposé", "Estoy dispuesto a ayudar.", "Adjetivos B2"],
+  ["dispuesto", "prêt, disposé", "Estoy dispuesto a ayudar.", "Adjetivos B2", "Toujours estar : estar dispuesto a + infinitif = être prêt/disposé à."],
 
   // --- Idiomes (plus) ---
   ["tirar la toalla", "jeter l'éponge", "No tires la toalla tan pronto.", "Modismos"],
@@ -150,6 +150,20 @@ window.VOCAB = window.VOCAB.concat([
   ["ir a + infinitivo", "aller (faire) — futur proche", "Voy a estudiar esta tarde.", "Errores frecuentes"],
   ["estar + gerundio", "être en train de (faire)", "Estoy comiendo, te llamo luego.", "Errores frecuentes"],
   ["preferir A a B", "préférer A à B", "Prefiero el té al café.", "Errores frecuentes"],
-  ["gustar más", "préférer (aimer plus)", "Me gusta más el mar que la montaña.", "Errores frecuentes"]
+  ["gustar más", "préférer (aimer plus)", "Me gusta más el mar que la montaña.", "Errores frecuentes"],
+
+  // --- Ser o estar : adjectifs (l'auxiliaire apparaît au REVEAL, pas au recto) ---
+  ["aburrido", "ennuyeux ; qui s'ennuie", "La película es aburrida. / Estoy aburrido.", "Ser o estar", "ser aburrido = ennuyeux (qualité) · estar aburrido = qui s'ennuie (état)"],
+  ["rico", "riche ; délicieux", "Su familia es rica. / ¡Está riquísimo!", "Ser o estar", "ser rico = riche · estar rico = délicieux (nourriture)"],
+  ["bueno", "bon, gentil ; savoureux", "Es una buena persona. / La sopa está buena.", "Ser o estar", "ser bueno = bon, gentil · estar bueno = bon au goût / en forme"],
+  ["malo", "mauvais, méchant ; malade", "Es muy malo. / Estoy malo, tengo fiebre.", "Ser o estar", "ser malo = mauvais, méchant · estar malo = malade"],
+  ["verde", "vert ; pas mûr", "El coche es verde. / El plátano está verde.", "Ser o estar", "ser verde = vert (couleur) · estar verde = pas mûr / débutant"],
+  ["despierto", "vif d'esprit ; réveillé", "Es un niño despierto. / Ya estoy despierto.", "Ser o estar", "ser despierto = éveillé, vif · estar despierto = réveillé (état)"],
+  ["atento", "prévenant ; attentif", "Es muy atento con todos. / Está atento a la clase.", "Ser o estar", "ser atento = prévenant, poli · estar atento a = attentif à"],
+  ["vivo", "vif, malin ; en vie", "Es muy vivo para su edad. / Sigue vivo.", "Ser o estar", "ser vivo = vif, malin · estar vivo = en vie"],
+  ["molesto", "gênant ; contrarié", "Es un ruido molesto. / Está molesto conmigo.", "Ser o estar", "ser molesto = gênant · estar molesto = contrarié, fâché"],
+  ["enfadado", "fâché, en colère", "Está enfadado conmigo.", "Ser o estar", "Toujours estar : c'est un état passager, jamais ser."],
+  ["lleno", "plein ; rassasié", "El vaso está lleno. / Estoy lleno, gracias.", "Ser o estar", "Toujours estar : estar lleno = plein / rassasié."],
+  ["seguro", "sûr (certain) ; sûr (fiable)", "Estoy seguro de que vendrá. / Es un coche seguro.", "Ser o estar", "estar seguro de = être certain · ser seguro = fiable, sans danger"]
 
 ]);

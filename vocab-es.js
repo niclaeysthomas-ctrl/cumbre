@@ -75,7 +75,7 @@ window.VOCAB = window.VOCAB.concat([
   ["harto", "qui en a marre", "Estoy harto de esperar.", "Emociones"],
 
   // --- Adjectifs (plus) ---
-  ["listo", "prêt (estar) ; malin (ser)", "Ya estoy listo para salir.", "Adjetivos"],
+  ["listo", "malin ; prêt", "Ya estoy listo para salir.", "Ser o estar", "ser listo = malin, dégourdi · estar listo = prêt"],
   ["amplio", "spacieux, ample", "El salón es muy amplio.", "Adjetivos"],
   ["estrecho", "étroit", "La calle es muy estrecha.", "Adjetivos"],
   ["profundo", "profond", "Es un tema profundo.", "Adjetivos"],
