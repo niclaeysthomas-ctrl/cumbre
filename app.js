@@ -832,10 +832,23 @@ function startThemeReview(theme) {
   R = { queue, pos: 0, shown: false, reviewed: 0, unlimited: true, theme };
   renderCard();
 }
+// Sépare la traduction française de ses notes "explicatives" (faux-amis, gloses
+// qui contiennent la réponse) — celles-ci ne doivent PAS spoiler le recto.
+// Les parenthèses désambiguatrices courtes ("(un examen)", "(à boire)") restent devant.
+function splitGloss(s) {
+  const notes = [];
+  const core = s.replace(/\s*\(([^)]*)\)/g, (m, inner) => {
+    if (/[≠=«»]/.test(inner)) { notes.push(inner.trim()); return ''; }
+    return m; // désambiguateur utile : on le garde au recto
+  }).replace(/\s{2,}/g, ' ').replace(/\s+([;,.])/g, '$1').trim();
+  return { core: core || s, note: notes.join(' · ') };
+}
 function renderCard() {
   if (R.pos >= R.queue.length) return finishReview();
   const i = R.queue[R.pos];
-  const en = VOCAB[i][0], fr = VOCAB[i][1], ex = VOCAB[i][2], theme = VOCAB[i][3];
+  const en = VOCAB[i][0], ex = VOCAB[i][2], theme = VOCAB[i][3];
+  const frSplit = splitGloss(VOCAB[i][1]);
+  const fr = frSplit.core, gloss = frSplit.note;
   const isNew = !S.cards[i] || !S.cards[i].introduced;
   // Sens tiré au hasard : produire l’espagnol OU le français
   R.dir = Math.random() < 0.5 ? 'en2fr' : 'fr2en';
@@ -853,6 +866,7 @@ function renderCard() {
       <div id="cardback" class="hidden">
         <div class="back">${answer}</div>
         <div class="ex">“${ex}”</div>
+        ${gloss ? `<div class="gloss">💡 ${gloss}</div>` : ''}
       </div>
       <div id="taphint" class="tap">${R.dir === 'en2fr' ? 'Traduis en français' : 'Traduis en espagnol'} · touche pour révéler ▽</div>
     </div>
