@@ -476,7 +476,10 @@ const LESSON_TRANS = {
   sicond: ['Hypothèse C1'],
   imperativo: ['Impératif'],
   cambio: ['Verbos & régime'], regimen: ['Verbos & régime'], perifrasis: ['Verbos & régime'],
-  estiloindirecto: [], pasivase: [], conectores: []
+  estiloindirecto: [], pasivase: [], conectores: [],
+  /* palier C1-C2 */
+  seinvol: ['Nuances C2'], concesivas: ['Nuances C2'], relativo: ['Nuances C2'],
+  loneutro: ['Nuances C2'], causafin: ['Nuances C2'], correlacion: ['Nuances C2']
 };
 function doneLessons() { return LESSONS.filter(l => S.lessons[l.id] && S.lessons[l.id].done); }
 function buildMix(n) {
