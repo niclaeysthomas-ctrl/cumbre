@@ -14,6 +14,7 @@ const DEFAULT = {
   lastActive: null,
   lessons: {},          // id -> {best: %, done: bool}
   cards: {},            // index -> {ease, interval(jours), reps, due(ms), lapses, introduced}
+  shadow: {},           // id de texte -> true (shadowing travaillé)
   newToday: 0,
   newDate: todayStr(),
   reviewsDone: 0,       // total révisions cartes (stat)
@@ -254,6 +255,7 @@ function render() {
   if (view === 'grammar') return renderGrammarList();
   if (view === 'anki') return renderAnkiHome();
   if (view === 'listen') return renderListenHome();
+  if (view === 'shadow') return renderShadowHome();
   if (view === 'exam') return renderExamHome();
   if (view === 'traduire') return renderTransHome();
 }
@@ -1007,12 +1009,145 @@ function renderListenHome() {
       <div class="body"><div class="t">Part 3/4 · Conversations & exposés</div><div class="d">Dialogues joués, puis questions de compréhension</div></div>
       <div class="badge zero">${nConv + nTalk}</div>
     </button>
+    <button class="tile" style="border-color:var(--accent)" onclick="setView('shadow')">
+      <div class="ic l">🎙️</div>
+      <div class="body"><div class="t">Shadowing · répète en simultané</div><div class="d">Prosodie + automaticité — le levier B2→C1</div></div>
+      <div class="badge zero">${SHADOWING.filter(t => shDone(t.id)).length}/${SHADOWING.length}</div>
+    </button>
     <button class="btn ghost mt" onclick="toggleSlow()">🐢 Vitesse : ${S.slowAudio ? 'Lente' : 'Normale'}</button>
     <button class="btn ghost mt" onclick="cycleVoix()">🗣️ Voix : ${nomVoix()}</button>
     <div class="sub center mt">Écouter de l'espagnol authentique, c'est ce qui débloque la compréhension.</div>
   `;
 }
 function toggleSlow() { S.slowAudio = !S.slowAudio; save(); renderListenHome(); toast(S.slowAudio ? 'Écoute ralentie 🐢' : 'Écoute à vitesse normale'); }
+
+/* ============================================================
+   SHADOWING — répétition en simultané (prosodie + automaticité)
+   ============================================================ */
+let SH = null;                        // état de session
+const SH_RATES = [0.7, 0.85, 1.0];
+function shDone(id) { return S.shadow && S.shadow[id]; }
+function shRate() { return SH_RATES[SH ? SH.rate : 1]; }
+function shSpeak(text, onend) {
+  if (!('speechSynthesis' in window)) { toast('Synthèse vocale indisponible'); return; }
+  const moi = ++sessionVoix;
+  clearTimeout(timerVoix);
+  speechSynthesis.cancel();
+  timerVoix = setTimeout(() => {
+    if (moi !== sessionVoix) return;
+    const u = new SpeechSynthesisUtterance(String(text));
+    u.lang = 'es-ES'; u.pitch = 1; u.rate = shRate();
+    if (voiceES) u.voice = voiceES;
+    let passe = false;
+    const fin = () => { if (passe) return; passe = true; if (onend && moi === sessionVoix) onend(); };
+    u.onend = fin;
+    u.onerror = e => { if (e.error === 'interrupted' || e.error === 'canceled') return; fin(); };
+    speechSynthesis.speak(u);
+  }, 90);
+}
+function renderShadowHome() {
+  const done = SHADOWING.filter(t => shDone(t.id)).length;
+  app.innerHTML = `
+    <div class="card" style="border-color:var(--accent)">
+      <h2>🎙️ Shadowing</h2>
+      <div class="sub">La technique qui casse le plateau B2→C1 : tu <b style="color:var(--txt)">répètes en même temps</b> que la voix, avec un léger décalage. Ça entraîne la prosodie et surtout l'<b style="color:var(--txt)">automaticité</b> — quand l'espagnol sort sans passer par le français.</div>
+      <div class="sub mt" style="font-size:13px">Comment faire : écoute une phrase, puis rejoue-la en te superposant à la voix (~1 s de retard). Vise le rythme et la mélodie, pas la perfection. Commence lentement, accélère quand c'est fluide.</div>
+    </div>
+    <button class="btn ghost mt" onclick="setView('listen')">← Compréhension orale</button>
+    <div class="sub center mt mb" style="font-size:13px">${done}/${SHADOWING.length} textes travaillés</div>
+    ${SHADOWING.map(t => `
+      <button class="tile" onclick="startShadow('${t.id}')">
+        <div class="ic l">${shDone(t.id) ? '✅' : '🎙️'}</div>
+        <div class="body"><div class="t">${t.title}</div><div class="d">${t.theme} · ${t.lines.length} frases</div></div>
+        <div class="badge zero">${t.level}</div>
+      </button>`).join('')}
+  `;
+}
+function startShadow(id) {
+  const t = SHADOWING.find(x => x.id === id);
+  SH = { t, rate: 1, cur: -1, playing: false, mode: null };
+  renderShadowCard();
+}
+function shHighlight(i) {
+  SH.cur = i;
+  document.querySelectorAll('.shline').forEach((el, k) => {
+    el.classList.toggle('on', k === i);
+  });
+  const el = document.querySelector('.shline.on');
+  if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+/* lecture continue : surligne chaque phrase à mesure */
+function shPlayAll(from) {
+  const t = SH.t; SH.playing = true; SH.mode = 'all';
+  const step = i => {
+    if (!SH || !SH.playing || i >= t.lines.length) { SH.playing = false; shHighlight(-1); shUpdateBtns(); return; }
+    shHighlight(i);
+    shSpeak(t.lines[i], () => { if (SH && SH.playing) setTimeout(() => step(i + 1), 180); });
+  };
+  step(from || 0);
+  shUpdateBtns();
+}
+/* mode shadowing : phrase, PUIS un silence de sa durée (le temps de la répéter), puis la suivante */
+function shPlayShadow(from) {
+  const t = SH.t; SH.playing = true; SH.mode = 'shadow';
+  const step = i => {
+    if (!SH || !SH.playing || i >= t.lines.length) { SH.playing = false; shHighlight(-1); shUpdateBtns(); return; }
+    shHighlight(i);
+    const words = t.lines[i].split(/\s+/).length;
+    const gap = Math.max(700, (words / 2.3) / shRate() * 1000);  // ≈ durée de la phrase, pour la répéter
+    const fb = document.getElementById('shFb');
+    shSpeak(t.lines[i], () => {
+      if (!SH || !SH.playing) return;
+      if (fb) fb.textContent = '🗣️ ¡Repite!';
+      setTimeout(() => { if (fb) fb.textContent = ''; if (SH && SH.playing) step(i + 1); }, gap);
+    });
+  };
+  step(from || 0);
+  shUpdateBtns();
+}
+function shStop() { SH.playing = false; SH.mode = null; stopSpeak(); shHighlight(-1); const fb = document.getElementById('shFb'); if (fb) fb.textContent = ''; shUpdateBtns(); }
+function shSetRate(r) { SH.rate = r; if (SH.playing) { const m = SH.mode, i = Math.max(0, SH.cur); shStop(); m === 'shadow' ? shPlayShadow(i) : shPlayAll(i); } else renderShadowCard(); }
+function shUpdateBtns() {
+  const p = document.getElementById('shPlay'), s = document.getElementById('shShadow');
+  if (p) p.textContent = (SH.playing && SH.mode === 'all') ? '⏹ Detener' : '▶ Escuchar entero';
+  if (s) s.textContent = (SH.playing && SH.mode === 'shadow') ? '⏹ Detener' : '🎙️ Modo shadowing';
+}
+function shMarkDone() {
+  if (!S.shadow) S.shadow = {};
+  const first = !S.shadow[SH.t.id];
+  S.shadow[SH.t.id] = true;
+  bumpDaily('study'); markStudy();
+  addXp(first ? 15 : 6);
+  toast(first ? '🎙️ ¡Bien! Texto trabajado · +15 XP' : 'Repasado · +6 XP');
+  save();
+  renderShadowHome();
+}
+function renderShadowCard() {
+  const t = SH.t;
+  app.innerHTML = `
+    <div class="qmeta"><span>🎙️ Shadowing · <span style="color:var(--accent)">${t.level}</span></span><span>${t.theme}</span></div>
+    <div class="card"><b>${t.title}</b><div class="sub mt" style="font-size:13px">💡 ${t.tip}</div></div>
+    <div class="shbox">
+      ${t.lines.map((l, i) => `<div class="shline" onclick="shTap(${i})">${l}</div>`).join('')}
+    </div>
+    <div id="shFb" class="center" style="color:var(--accent);font-weight:700;height:22px;margin:6px 0"></div>
+    <div class="shrate">
+      <span class="sub">Velocidad</span>
+      ${SH_RATES.map((r, i) => `<button class="segchip ${SH.rate === i ? 'on' : ''}" onclick="shSetRate(${i})">${['🐢 0.7×', '0.85×', '1× 🏃'][i]}</button>`).join('')}
+    </div>
+    <button class="btn mt" id="shPlay" onclick="SH.playing && SH.mode==='all' ? shStop() : shPlayAll(0)">▶ Escuchar entero</button>
+    <button class="btn sec mt" id="shShadow" onclick="SH.playing && SH.mode==='shadow' ? shStop() : shPlayShadow(0)">🎙️ Modo shadowing</button>
+    <div class="sub center mt" style="font-size:12px">Astuce : touche une phrase pour l'entendre seule et la boucler.</div>
+    <button class="btn ghost mt" onclick="shMarkDone()">✅ Texto trabajado</button>
+    <button class="btn ghost" onclick="stopSpeak();renderShadowHome()">← Todos los textos</button>
+  `;
+  shUpdateBtns();
+}
+function shTap(i) {
+  if (SH.playing) shStop();
+  shHighlight(i);
+  shSpeak(SH.t.lines[i], () => shHighlight(-1));
+}
 function voixES() { return ('speechSynthesis' in window) ? speechSynthesis.getVoices().filter(estES) : []; }
 function nomVoix() {
   if (!voixDispo()) return 'aucune voix espagnole';
