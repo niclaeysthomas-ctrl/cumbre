@@ -32,6 +32,7 @@ const DEFAULT = {
   longDone: 0,          // sessions d'écoute Part 3/4 terminées
   perfectDays: 0,       // jours où l'objectif du jour a été atteint
   slowAudio: false,     // vitesse d'écoute réduite
+  voix: null,           // nom de la voix espagnole choisie (null = automatique)
   firstRun: true
 };
 
@@ -1007,10 +1008,26 @@ function renderListenHome() {
       <div class="badge zero">${nConv + nTalk}</div>
     </button>
     <button class="btn ghost mt" onclick="toggleSlow()">🐢 Vitesse : ${S.slowAudio ? 'Lente' : 'Normale'}</button>
+    <button class="btn ghost mt" onclick="cycleVoix()">🗣️ Voix : ${nomVoix()}</button>
     <div class="sub center mt">Écouter de l'espagnol authentique, c'est ce qui débloque la compréhension.</div>
   `;
 }
 function toggleSlow() { S.slowAudio = !S.slowAudio; save(); renderListenHome(); toast(S.slowAudio ? 'Écoute ralentie 🐢' : 'Écoute à vitesse normale'); }
+function voixES() { return ('speechSynthesis' in window) ? speechSynthesis.getVoices().filter(estES) : []; }
+function nomVoix() {
+  if (!voixDispo()) return 'aucune voix espagnole';
+  return (voiceES ? voiceES.name + ' · ' + voiceES.lang : 'automatique') + (S.voix ? '' : ' (auto)');
+}
+/* Fait défiler les voix espagnoles du système : utile quand l'appareil
+   propose du castillan et du latino-américain et qu'on veut trancher. */
+function cycleVoix() {
+  const es = voixES();
+  if (!es.length) { toast("Aucune voix espagnole installée sur cet appareil"); return; }
+  const k = es.findIndex(v => v.name === (voiceES && voiceES.name));
+  const suivante = es[(k + 1) % es.length];
+  S.voix = suivante.name; save(); pickVoice(); renderListenHome();
+  speak('Hola, así sueno yo.');
+}
 function startListen() {
   LST = { order: shuffle([...Array(EXAM_LISTEN.length).keys()]), i: 0, correct: 0, answered: false };
   renderListen();
@@ -1141,41 +1158,87 @@ function finishLong() {
   `;
 }
 
-/* ---------- Synthèse vocale ---------- */
-let voiceEN = null, voiceW = null, voiceM = null;
+/* ---------- Synthèse vocale ----------
+   Trois pièges du Web Speech API, corrigés ici :
+   1. cancel() est asynchrone. Enchaîner speak() dans la foulée fait perdre
+      l'énoncé — deux appuis rapprochés sur 🔊 donnaient le silence.
+   2. Chrome coupe toute lecture au bout d'environ 15 s. Un resume()
+      périodique la relance sans effet audible.
+   3. iOS n'autorise la première lecture que dans un geste utilisateur.
+      On déverrouille au premier contact avec un énoncé vide. */
+let voiceES = null, voiceW = null, voiceM = null, voixPrevenu = false;
+function estES(v) { return /^es/i.test(v.lang); }
 function pickVoice() {
   const vs = speechSynthesis.getVoices();
-  const es = vs.filter(v => /^es/i.test(v.lang));
-  voiceEN = es.find(v => /es-ES/i.test(v.lang)) || es[0] || vs[0] || null;
-  voiceW = es.find(v => /female|Mónica|Monica|Marisol|Paulina|Helena|Google español/i.test(v.name)) || voiceEN;
-  voiceM = es.find(v => /male|Jorge|Diego|Juan|Enrique|Carlos|Pablo/i.test(v.name)) || voiceEN;
+  if (!vs.length) return;
+  const es = vs.filter(estES);
+  const esES = es.filter(v => /^es[-_]ES/i.test(v.lang));   // castillan d'abord : l'app vise le DELE
+  const pref = S.voix && es.find(v => v.name === S.voix);
+  const socle = esES.concat(es);
+  // \b : sans lui, /male/ reconnaît aussi « female »
+  voiceW = socle.find(v => /\bfemale\b|Mónica|Monica|Marisol|Paulina|Helena|Lucía|Lucia/i.test(v.name)) || esES[0] || es[0] || null;
+  voiceM = socle.find(v => /\bmale\b|Jorge|Diego|Juan|Enrique|Carlos|Pablo/i.test(v.name)) || esES[0] || es[0] || null;
+  voiceES = pref || esES[0] || es[0] || null;   // jamais de repli sur une voix non espagnole
+  if (!es.length && !voixPrevenu) {
+    voixPrevenu = true;
+    setTimeout(() => toast("Aucune voix espagnole installée sur cet appareil"), 1200);
+  }
 }
 if ('speechSynthesis' in window) {
   pickVoice();
   speechSynthesis.onvoiceschanged = pickVoice;
+  // Chrome s'arrête vers 15 s : on le relance discrètement.
+  setInterval(() => {
+    if (speechSynthesis.speaking && !speechSynthesis.paused) speechSynthesis.resume();
+  }, 9000);
+  // iOS : la toute première lecture doit naître d'un geste.
+  const debloquer = () => {
+    try { const u = new SpeechSynthesisUtterance(''); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
+    document.removeEventListener('pointerdown', debloquer);
+  };
+  document.addEventListener('pointerdown', debloquer, { once: true });
 }
+function voixDispo() { return ('speechSynthesis' in window) && speechSynthesis.getVoices().some(estES); }
 function audioRate(base) { return base * (S.slowAudio ? 0.78 : 1); }
-function speak(text) {
-  if (!('speechSynthesis' in window)) { toast('Synthèse vocale indisponible'); return; }
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'es-ES'; u.rate = audioRate(0.95); u.pitch = 1;
-  if (voiceEN) u.voice = voiceEN;
-  speechSynthesis.speak(u);
+function prepare(texte, spk) {
+  const u = new SpeechSynthesisUtterance(texte);
+  u.lang = 'es-ES';
+  if (spk === 'W') { u.pitch = 1.25; u.rate = audioRate(0.95); if (voiceW) u.voice = voiceW; }
+  else if (spk === 'M') { u.pitch = 0.8; u.rate = audioRate(0.92); if (voiceM) u.voice = voiceM; }
+  else { u.pitch = 1; u.rate = audioRate(0.95); if (voiceES) u.voice = voiceES; }
+  return u;
 }
+let sessionVoix = 0, timerVoix = null;
+/* Annule proprement, puis parle après un souffle : sans ce délai, cancel()
+   n'a pas fini de vider la file et l'énoncé suivant est avalé. */
+function speak(text, spk) {
+  if (!('speechSynthesis' in window)) { toast('Synthèse vocale indisponible'); return; }
+  if (!text || !String(text).trim()) return;
+  const moi = ++sessionVoix;
+  clearTimeout(timerVoix);
+  speechSynthesis.cancel();
+  timerVoix = setTimeout(() => {
+    if (moi !== sessionVoix) return;
+    speechSynthesis.speak(prepare(String(text), spk));
+  }, 90);
+}
+function stopSpeak() { sessionVoix++; clearTimeout(timerVoix); speechSynthesis.cancel(); }
 // Joue un dialogue ligne par ligne, en différenciant les locuteurs (voix + hauteur).
 function speakLines(lines, i, onDone) {
   if (!('speechSynthesis' in window)) { toast('Synthèse vocale indisponible'); return; }
-  if (i === 0) speechSynthesis.cancel();
-  if (i >= lines.length) { if (onDone) onDone(); return; }
-  const ln = lines[i];
-  const u = new SpeechSynthesisUtterance(ln.text);
-  u.lang = 'es-ES';
-  if (ln.spk === 'W') { u.pitch = 1.3; u.rate = audioRate(0.95); if (voiceW) u.voice = voiceW; }
-  else if (ln.spk === 'M') { u.pitch = 0.7; u.rate = audioRate(0.92); if (voiceM) u.voice = voiceM; }
-  else { u.pitch = 1; u.rate = audioRate(0.95); if (voiceEN) u.voice = voiceEN; }
-  u.onend = () => speakLines(lines, i + 1, onDone);
-  speechSynthesis.speak(u);
+  if (i === 0) { stopSpeak(); }
+  const moi = i === 0 ? ++sessionVoix : sessionVoix;
+  const suite = () => {
+    if (moi !== sessionVoix) return;              // une autre lecture a pris la main
+    if (i >= lines.length) { if (onDone) onDone(); return; }
+    const u = prepare(lines[i].text, lines[i].spk);
+    let passe = false;
+    const avancer = () => { if (passe) return; passe = true; speakLines(lines, i + 1, onDone); };
+    u.onend = avancer;
+    u.onerror = e => { if (e.error === 'interrupted' || e.error === 'canceled') return; avancer(); };
+    speechSynthesis.speak(u);
+  };
+  i === 0 ? setTimeout(suite, 90) : suite();
 }
 
 /* ---------- Utilitaires ---------- */

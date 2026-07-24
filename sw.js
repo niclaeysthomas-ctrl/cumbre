@@ -1,5 +1,5 @@
 /* CUMBRE — service worker : cache offline (app shell) */
-const CACHE = 'cumbre-v10';
+const CACHE = 'cumbre-v11';
 const ASSETS = [
   'index.html',
   'app.js?v=10',
@@ -8,7 +8,9 @@ const ASSETS = [
   'vocab-es2.js?v=2',
   'vocab-es3.js?v=6',
   'vocab-es4.js?v=1',
+  'vocab-es5.js?v=1',
   'translations.js?v=1',
+  'translations2.js?v=1',
   'listening-long.js?v=2',
   'exam-data.js?v=1',
   'advanced-es.js?v=2',
