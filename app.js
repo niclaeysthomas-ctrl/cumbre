@@ -15,6 +15,7 @@ const DEFAULT = {
   lessons: {},          // id -> {best: %, done: bool}
   cards: {},            // index -> {ease, interval(jours), reps, due(ms), lapses, introduced}
   shadow: {},           // id de texte -> true (shadowing travaillé)
+  dudas: {},            // id de mini-cours -> true (point consulté)
   newToday: 0,
   newDate: todayStr(),
   reviewsDone: 0,       // total révisions cartes (stat)
@@ -639,15 +640,101 @@ function renderGrammarList() {
       <div class="sub">La référence complète : formation, verbes modèles, irréguliers clés et exemples traduits — impératif, subjonctif imparfait, hypothèses… Consultable à tout moment, sans quiz.</div>
       <button class="btn sec mt" onclick="renderTensesList()">Ouvrir la référence · ${TENSES.length} temps</button>
     </div>`;
+  const dudasN = (typeof DUDAS !== 'undefined') ? DUDAS.length : 0;
+  const dudasDone = (typeof DUDAS !== 'undefined') ? DUDAS.filter(d => dudaDone(d.id)).length : 0;
+  const dudasCard = dudasN ? `
+    <div class="card" style="border-color:var(--accent)">
+      <h2 style="font-size:16px">💡 Dudas y matices</h2>
+      <div class="sub">Les petits pièges qui font la différence : <b style="color:var(--txt)">nada/ningún</b>, <b style="color:var(--txt)">gran/grande</b>, saber/conocer, por qué/porque, le « lo » neutre… Règle claire + exemples + le piège francophone + mini-test.</div>
+      <button class="btn sec mt" onclick="renderDudasList()">Ouvrir · ${dudasN} points ${dudasDone ? `· ${dudasDone} vus` : ''}</button>
+    </div>` : '';
   app.innerHTML = `
     <div class="card">
       <h2>Grammaire</h2>
       <div class="sub">Valide une leçon (≥ 70 %) pour débloquer la suivante. Chaque bonne réponse rapporte de l'XP.</div>
     </div>
+    ${dudasCard}
     ${tensesCard}
     ${mixCard}
     ${rows}
   `;
+}
+
+/* ---------- DUDAS Y MATICES : mini-cours ciblés ---------- */
+function dudaDone(id) { return S.dudas && S.dudas[id]; }
+function renderDudasList() {
+  window.scrollTo(0, 0);
+  const done = (DUDAS || []).filter(d => dudaDone(d.id)).length;
+  const rows = DUDAS.map(d => `
+    <div class="lrow ${dudaDone(d.id) ? 'done' : ''}" onclick="renderDuda('${d.id}')">
+      <div class="n">${dudaDone(d.id) ? '✓' : '💡'}</div>
+      <div class="info"><div class="tt">${d.title}</div><div class="tg">${d.tag}</div></div>
+      <div class="sc">›</div>
+    </div>`).join('');
+  app.innerHTML = `
+    <div class="card">
+      <h2>Dudas y matices</h2>
+      <div class="sub">Les points qui coincent : nada/ningún, gran/grande, ser/estar qui changent le sens, por qué/porque… Une règle claire, des exemples contrastés, le piège francophone, et un mini-test. Consultable quand tu veux.</div>
+      <div class="sub center mt" style="font-size:13px">${done}/${DUDAS.length} points consultés</div>
+    </div>
+    ${rows}
+    <button class="btn ghost mt" onclick="setView('grammar')">Retour à la grammaire</button>
+  `;
+}
+function renderDuda(id) {
+  const d = DUDAS.find(x => x.id === id);
+  if (!d) return renderDudasList();
+  window.scrollTo(0, 0);
+  const cuerpo = d.cuerpo.map(b => `
+    <div class="tsec">
+      <div style="font-size:14.5px;line-height:1.55">${b.t}</div>
+      ${(b.ej || []).map(([es, fr]) => `<div class="exs mt"><span class="es">${es}</span><span class="fr">${fr}</span></div>`).join('')}
+    </div>`).join('');
+  const check = (d.check && d.check.length) ? `
+    <div class="tsec"><div class="th">✍️ Compruébalo</div>
+      ${d.check.map((c, ci) => `
+        <div class="dcheck" data-correct="${c[2]}" style="margin:10px 0">
+          <div style="font-weight:600;margin-bottom:6px">${c[0]}</div>
+          <div id="dopts-${ci}">${c[1].map((o, oi) => `<button class="opt" onclick="dudaAnswer(${ci},${oi})">${o}</button>`).join('')}</div>
+          <div id="dexpl-${ci}" class="expl" style="display:none"></div>
+        </div>`).join('')}
+    </div>` : '';
+  app.innerHTML = `
+    <div class="card">
+      <div class="pill warn">${d.tag}</div>
+      <h2 class="mt">${d.title}</h2>
+      <div class="expl mt" style="border-color:var(--accent)"><b>La clave</b><br>${d.clave}</div>
+      ${cuerpo}
+      ${d.error ? `<div class="expl mt" style="border-color:var(--bad)"><b>❗ El error típico francófono</b><br>${d.error}</div>` : ''}
+      ${check}
+    </div>
+    <button class="btn ghost mt" onclick="renderDudasList()">← Todas las dudas</button>
+  `;
+  DUDA_CUR = { id, expls: (d.check || []).map(c => c[3]) };
+  if (!d.check || !d.check.length) markDudaDone(id);   // sans test, la lecture suffit
+}
+let DUDA_CUR = null;
+function dudaAnswer(ci, oi) {
+  const box = document.querySelectorAll('.dcheck')[ci];
+  if (!box || box.dataset.answered) return;
+  box.dataset.answered = '1';
+  const correct = +box.dataset.correct;
+  box.querySelectorAll('#dopts-' + ci + ' .opt').forEach((b, i) => {
+    b.setAttribute('disabled', '');
+    if (i === correct) b.classList.add('good');
+    else if (i === oi) b.classList.add('bad');
+    else b.classList.add('dim');
+  });
+  const ex = document.getElementById('dexpl-' + ci);
+  if (ex) { ex.textContent = (DUDA_CUR && DUDA_CUR.expls[ci]) || ''; ex.style.display = 'block'; }
+  addXp(oi === correct ? 2 : 1);
+  // point consulté = validé quand tous les check sont répondus (ou dès la lecture s'il n'y en a pas)
+  const boxes = document.querySelectorAll('.dcheck');
+  if ([...boxes].every(b => b.dataset.answered) && DUDA_CUR) markDudaDone(DUDA_CUR.id);
+}
+function markDudaDone(id) {
+  if (!S.dudas) S.dudas = {};
+  if (!S.dudas[id]) { S.dudas[id] = true; markStudy(); save(); }
 }
 
 /* ---------- RÉFÉRENCE : Les temps (conjugaisons) ---------- */
