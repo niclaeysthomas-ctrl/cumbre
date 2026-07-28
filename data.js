@@ -265,6 +265,5 @@ window.VOCAB = [
   ["débil", "faible", "Se siente débil hoy.", "Adjetivos"],
   ["ocupado", "occupé", "Estoy muy ocupado esta semana.", "Adjetivos"],
   ["cansado", "fatigué", "Estoy cansado del viaje.", "Adjetivos", "estar cansado = fatigué (état) · ser cansado = fatigant (rare)"],
-  ["contento", "content", "Estoy contento con el resultado.", "Adjetivos"],
-  ["orgulloso", "fier", "Estoy orgulloso de ti.", "Adjetivos", "ser orgulloso = orgueilleux (défaut) · estar orgulloso de = fier de"]
+  ["contento", "content", "Estoy contento con el resultado.", "Adjetivos"]
 ];

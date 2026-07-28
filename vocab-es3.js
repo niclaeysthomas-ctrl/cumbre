@@ -138,7 +138,6 @@ window.VOCAB = window.VOCAB.concat([
   ["pretender", "avoir l'intention de (≠ prétendre = afirmar)", "Pretende aprobar sin estudiar.", "Falsos amigos"],
   ["el campo", "la campagne, le champ (≠ camp = el campamento)", "Vivimos en el campo.", "Falsos amigos"],
   ["la ropa", "les vêtements (≠ corde = la cuerda)", "Voy a lavar la ropa.", "Falsos amigos"],
-  ["el disgusto", "la contrariété (≠ dégoût = el asco)", "Se llevó un disgusto tremendo.", "Falsos amigos"],
 
   // --- Erreurs fréquentes (plus) : toujours la BONNE forme ---
   ["tener prisa", "être pressé (avoir de la hâte)", "Tengo prisa, hablamos luego.", "Errores frecuentes"],

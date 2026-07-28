@@ -113,8 +113,6 @@ window.VOCAB = window.VOCAB.concat([
   ["duradero", "durable", "Buscamos una solución duradera.", "Adjetivos B2"],
   ["previsto", "prévu", "Todo salió según lo previsto.", "Adjetivos B2"],
   ["ajeno", "étranger, d'autrui", "No te metas en asuntos ajenos.", "Adjetivos B2"],
-  ["imprescindible", "indispensable", "Tu ayuda es imprescindible.", "Adjetivos B2"],
-  ["cotidiano", "quotidien", "Forma parte de la vida cotidiana.", "Adjetivos B2"],
 
   // --- Connecteurs C1 ---
   ["asimismo", "de même, par ailleurs", "Asimismo, conviene revisar el plan.", "Conectores C1"],
