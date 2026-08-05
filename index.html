@@ -257,6 +257,52 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 .trophy .tic{font-size:30px;line-height:1}
 .trophy .tt2{font-weight:800;font-size:14px;margin-top:6px}
 .trophy .td{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35}
+
+/* Prononciation */
+.hlr{color:var(--accent);font-weight:900}
+.hln{color:var(--purple);font-weight:900}
+.prow{display:flex;align-items:center;gap:12px;padding:9px 8px;border-radius:12px;border:1px solid transparent;transition:.15s}
+.prow + .prow{border-top:1px solid var(--line);border-radius:0}
+.prow.m-ok{background:#2ecc7112} .prow.m-again{background:#ffb02012}
+.pspk{background:var(--card2);border:1px solid var(--line);border-radius:50%;width:42px;height:42px;font-size:18px;display:grid;place-items:center;flex:0 0 auto}
+.pspk:active{transform:scale(.94)} .pspk.sm{width:34px;height:34px;font-size:15px}
+.pw{flex:1;min-width:0}
+.pes{font-size:20px;font-weight:800;letter-spacing:-.01em}
+.pfr{font-size:13px;color:var(--muted)}
+.pmark{display:flex;gap:6px;flex:0 0 auto}
+.pm{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--card2);font-size:16px}
+.pm.ok:active,.prow.m-ok .pm.ok{border-color:var(--good);background:#2ecc7122}
+.pm.again:active,.prow.m-again .pm.again{border-color:var(--accent);background:#ffb02022}
+.ppair{display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.ppair:last-child{border-bottom:none}
+.pp{flex:1;display:flex;align-items:center;gap:8px;min-width:0}
+.pp b{font-size:18px;font-weight:800;display:block;line-height:1.1}
+.pp small{font-size:11.5px;color:var(--muted);display:block}
+.ppx{color:var(--dim);font-weight:800;flex:0 0 auto}
+.ptw{font-size:19px;font-weight:700;line-height:1.5}
+.prowdrill{display:flex}
+
+/* Conjugaison */
+.accbar{position:sticky;top:0;z-index:20;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;
+  background:rgba(11,15,26,.94);backdrop-filter:blur(10px);padding:8px;margin:-16px -16px 12px;border-bottom:1px solid var(--line)}
+.accbar button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card2);font-size:18px;font-weight:800}
+.accbar button:active{background:var(--accent);color:#241700}
+.cjcard.done{border-color:var(--line)}
+.cjhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.cjinf{font-size:20px;font-weight:900;letter-spacing:-.02em}
+.cjfr{font-size:14px;font-weight:600;color:var(--muted)}
+.cjtag{margin-top:4px;font-size:13px}
+.cjscore{flex:0 0 auto;font-size:20px;font-weight:900;color:var(--accent);background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:6px 12px}
+.cjscore.perfect{color:var(--good);border-color:var(--good)}
+.cjhint{font-size:13px;color:var(--muted);margin:8px 0 12px;line-height:1.4}
+.cjgrid{display:flex;flex-direction:column;gap:8px}
+.cjfield{display:grid;grid-template-columns:78px 1fr;align-items:center;gap:10px}
+.cjfield label{font-size:13px;font-weight:700;color:var(--muted);text-align:right}
+.cjfield input{background:var(--bg2);border:1.5px solid var(--line);border-radius:10px;color:var(--txt);
+  font-family:inherit;font-size:16px;padding:10px 12px;width:100%}
+.cjfield input:focus{outline:none;border-color:var(--accent)}
+.cjres{grid-column:2;font-size:13px;font-weight:700;padding:2px 2px 0}
+.cjres.ok{color:var(--good)} .cjres.accent{color:var(--accent)} .cjres.bad{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -299,6 +345,8 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 <script src="advanced-es3.js?v=1"></script>
 <script src="register.js?v=1"></script>
 <script src="tenses.js?v=1"></script>
-<script src="app.js?v=13"></script>
+<script src="data-pron.js?v=1"></script>
+<script src="verbs-conj.js?v=1"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>

@@ -26,7 +26,11 @@ const DEFAULT = {
   history: [],          // [{ts, date, total, L, R, kind, diff, mins}]
   trans: {},            // index -> état SRS-lite des traductions
   transDone: 0,         // total de phrases travaillées
-  daily: { date: todayStr(), cards: 0, trans: 0, study: 0, credited: 0 }, // objectif du jour
+  daily: { date: todayStr(), cards: 0, trans: 0, study: 0, pron: 0, conj: 0, credited: 0 }, // objectif du jour
+  pronDays: 0,          // jours où la session de prononciation a été faite
+  conjDone: 0,          // total de verbes conjugués (validés)
+  conjPerfect: 0,       // total de verbes conjugués sans faute (6/6)
+  conjState: null,      // { date, done[3], score[3], ans[3][6] } — défi conjugaison du jour
   mistakes: {},         // erreurs à rejouer (clé -> {kind,q,opts,correct,expl,cat,audio,box})
   register: {},         // SRS-lite du module Espagnol soutenu
   transDir: 'fr2en',    // sens de la traduction : fr2en ou en2fr
@@ -39,9 +43,9 @@ const DEFAULT = {
 };
 
 // Objectifs quotidiens
-const GOAL_CARDS = 20, GOAL_TRANS = 5;
+const GOAL_CARDS = 20, GOAL_TRANS = 5, GOAL_CONJ = 3;
 function resetDailyIfNeeded() {
-  if (!S.daily || S.daily.date !== todayStr()) S.daily = { date: todayStr(), cards: 0, trans: 0, study: 0 };
+  if (!S.daily || S.daily.date !== todayStr()) S.daily = { date: todayStr(), cards: 0, trans: 0, study: 0, pron: 0, conj: 0 };
 }
 function bumpDaily(field, n) { resetDailyIfNeeded(); S.daily[field] = (S.daily[field] || 0) + (n || 1); save(); checkDailyDone(); }
 function markStudy() { resetDailyIfNeeded(); S.daily.study = 1; save(); checkDailyDone(); }
@@ -50,7 +54,9 @@ function dailyProgress() {
   const c = Math.min(1, S.daily.cards / GOAL_CARDS);
   const t = Math.min(1, S.daily.trans / GOAL_TRANS);
   const s = S.daily.study ? 1 : 0;
-  return { c, t, s, pct: Math.round((c + t + s) / 3 * 100), done: (c >= 1 && t >= 1 && s >= 1) };
+  const p = S.daily.pron ? 1 : 0;
+  const j = Math.min(1, (S.daily.conj || 0) / GOAL_CONJ);
+  return { c, t, s, p, j, pct: Math.round((c + t + s + p + j) / 5 * 100), done: (c >= 1 && t >= 1 && s >= 1 && p >= 1 && j >= 1) };
 }
 function checkDailyDone() {
   resetDailyIfNeeded();
@@ -257,6 +263,8 @@ function render() {
   if (view === 'anki') return renderAnkiHome();
   if (view === 'listen') return renderListenHome();
   if (view === 'shadow') return renderShadowHome();
+  if (view === 'pron') return renderPronHome();
+  if (view === 'conj') return renderConjHome();
   if (view === 'exam') return renderExamHome();
   if (view === 'traduire') return renderTransHome();
 }
@@ -282,7 +290,10 @@ const ACHIEVEMENTS = [
   { id: 'exam600', ic: '📈', title: 'Cap B1', desc: 'Niveau estimé B1', test: () => (S.estScore || 0) >= 55 },
   { id: 'exam785', ic: '🎓', title: 'Cap B2', desc: 'Niveau estimé B2', test: () => (S.estScore || 0) >= 72 },
   { id: 'exam900', ic: '🏆', title: 'Cumbre C1', desc: 'Niveau estimé C1', test: () => (S.estScore || 0) >= 88 },
-  { id: 'xp1000', ic: '⭐', title: 'Mille XP', desc: '1000 XP cumulés', test: () => S.xp >= 1000 }
+  { id: 'xp1000', ic: '⭐', title: 'Mille XP', desc: '1000 XP cumulés', test: () => S.xp >= 1000 },
+  { id: 'pron7', ic: '👅', title: 'Lengua de trapo', desc: '7 sessions de prononciation', test: () => (S.pronDays || 0) >= 7 },
+  { id: 'conj25', ic: '🔩', title: 'Conjugueur', desc: '25 verbes conjugués', test: () => (S.conjDone || 0) >= 25 },
+  { id: 'conj100', ic: '⚙️', title: 'Machine à conjuguer', desc: '100 verbes conjugués', test: () => (S.conjDone || 0) >= 100 }
 ];
 function earnedIds() { const s = []; ACHIEVEMENTS.forEach(a => { try { if (a.test()) s.push(a.id); } catch (e) {} }); return s; }
 function checkAchievements() {
@@ -343,7 +354,9 @@ function coachAdvice() {
   const dp = dailyProgress();
   if (due > 0) return { title: 'Priorité : réviser', msg: `${due} carte(s) sont dues. Les revoir à temps, c'est là que la mémoire se joue.`, btn: 'Réviser', action: 'startReview(false)' };
   if (mistakeCount() >= 3) return { title: 'Corrige tes erreurs', msg: `Tu as ${mistakeCount()} question(s) déjà ratée(s) en attente. Les rejouer jusqu'à les maîtriser, c'est le plus direct vers le sans-faute.`, btn: 'Revoir mes erreurs', action: 'startMistakes()' };
+  if (dp.j < 1) return { title: 'Conjugaison obligatoire', msg: `${GOAL_CONJ} verbes du jour à conjuguer en entier — c'est là que la grammaire devient un réflexe. Pas d'esquive.`, btn: 'Conjuguer', action: "setView('conj')" };
   if (dp.t < 1 && buildTransQueue('Tous').length) return { title: 'Passe à la production', msg: 'Traduire des phrases rend ta grammaire active — le vrai déclic bilingue.', btn: 'Traduire', action: "setView('traduire')" };
+  if (!dp.p) return { title: 'Travaille ta bouche', msg: 'La session de prononciation du jour : le R roulé surtout. 5 minutes qui changent ton accent.', btn: 'Prononcer', action: "setView('pron')" };
   if (!dp.s) return { title: 'Un peu d\'étude', msg: 'Une session d\'écoute ou une leçon de grammaire pour valider ta journée.', btn: 'Écouter', action: "setView('listen')" };
   if (dp.c < 1) return { title: 'Apprends du vocabulaire', msg: 'De nouvelles cartes t\'attendent aujourd\'hui.', btn: 'Cartes', action: 'startReview(false)' };
   return { title: 'Journée bouclée 🏆', msg: 'Tout est à jour. Un examen blanc pour mesurer tes progrès ?', btn: 'Examen blanc', action: "setView('exam')" };
@@ -380,6 +393,8 @@ function renderHome() {
       <div style="flex:1;min-width:0">
         <h2 style="font-size:16px;margin-bottom:6px">Objectif du jour ${dp.done ? '🏆' : ''}</h2>
         ${goalLine(dp.c >= 1, 'Réviser des cartes', `${Math.min(S.daily.cards, GOAL_CARDS)}/${GOAL_CARDS}`)}
+        ${goalLine(dp.j >= 1, 'Conjuguer 3 verbes', `${Math.min(S.daily.conj || 0, GOAL_CONJ)}/${GOAL_CONJ}`)}
+        ${goalLine(dp.p >= 1, 'Prononciation (R · ñ)', dp.p ? 'fait' : '0/1')}
         ${goalLine(dp.t >= 1, 'Traduire des phrases', `${Math.min(S.daily.trans, GOAL_TRANS)}/${GOAL_TRANS}`)}
         ${goalLine(dp.s >= 1, 'Étudier (grammaire/écoute)', dp.s ? 'fait' : '0/1')}
       </div>
@@ -423,6 +438,18 @@ function renderHome() {
       <div class="ic a">🃏</div>
       <div class="body"><div class="t">Réviser les cartes</div><div class="d">${due} révision(s) · ${news} nouvelle(s)</div></div>
       <div class="badge ${(due+news)===0?'zero':''}">${due + news}</div>
+    </button>
+
+    <button class="tile" style="${dp.j>=1?'':'border-color:var(--blue)'}" onclick="setView('conj')">
+      <div class="ic g">🔩</div>
+      <div class="body"><div class="t">Conjugaison du jour</div><div class="d">3 verbes · 3 temps · à conjuguer en entier</div></div>
+      <div class="badge ${dp.j>=1?'':'zero'}">${Math.min(S.daily.conj||0,GOAL_CONJ)}/${GOAL_CONJ}</div>
+    </button>
+
+    <button class="tile" style="${dp.p>=1?'':'border-color:var(--accent)'}" onclick="setView('pron')">
+      <div class="ic a">👅</div>
+      <div class="body"><div class="t">Prononciation du jour</div><div class="d">Le R roulé & la ñ — modèle audio + technique</div></div>
+      <div class="badge ${dp.p>=1?'':'zero'}">${dp.p>=1?'✓':'!'}</div>
     </button>
 
     <button class="tile" onclick="setView('grammar')">
@@ -634,6 +661,13 @@ function renderGrammarList() {
            <div class="sub center mt">${done.length} leçon(s) validée(s)${nTrad ? ` · ${nTrad} traduction(s) liée(s)` : ''}</div>`
         : `<div class="sub mt" style="color:var(--dim)">🔒 Valide au moins une leçon pour débloquer le mix.</div>`}
     </div>`;
+  const dpg = dailyProgress();
+  const conjCard = `
+    <div class="card" style="border-color:${dpg.j >= 1 ? 'var(--good)' : 'var(--accent)'}">
+      <h2 style="font-size:16px">🔩 Conjugaison du jour ${dpg.j >= 1 ? '✅' : ''}</h2>
+      <div class="sub">Obligatoire : <b style="color:var(--txt)">3 verbes</b> tirés à <b style="color:var(--txt)">3 temps différents</b>, à conjuguer <b style="color:var(--txt)">en entier</b> (les 6 personnes). Réguliers et irréguliers. Correction automatique, accents compris.</div>
+      <button class="btn mt" onclick="setView('conj')">${dpg.j >= 1 ? `Revoir · ${Math.min(S.daily.conj || 0, GOAL_CONJ)}/${GOAL_CONJ} fait` : `Conjuguer · ${Math.min(S.daily.conj || 0, GOAL_CONJ)}/${GOAL_CONJ}`}</button>
+    </div>`;
   const tensesCard = `
     <div class="card" style="border-color:var(--blue)">
       <h2 style="font-size:16px">📖 Les temps · conjugaisons</h2>
@@ -653,6 +687,7 @@ function renderGrammarList() {
       <h2>Grammaire</h2>
       <div class="sub">Valide une leçon (≥ 70 %) pour débloquer la suivante. Chaque bonne réponse rapporte de l'XP.</div>
     </div>
+    ${conjCard}
     ${dudasCard}
     ${tensesCard}
     ${mixCard}
@@ -1100,6 +1135,11 @@ function renderListenHome() {
       <div class="ic l">🎙️</div>
       <div class="body"><div class="t">Shadowing · répète en simultané</div><div class="d">Prosodie + automaticité — le levier B2→C1</div></div>
       <div class="badge zero">${SHADOWING.filter(t => shDone(t.id)).length}/${SHADOWING.length}</div>
+    </button>
+    <button class="tile" onclick="setView('pron')">
+      <div class="ic a">👅</div>
+      <div class="body"><div class="t">Prononciation du jour · R & ñ</div><div class="d">Le R roulé surtout — modèle audio, technique, paires minimales</div></div>
+      <div class="badge ${dailyProgress().p>=1?'':'zero'}">${dailyProgress().p>=1?'✓':'!'}</div>
     </button>
     <button class="btn ghost mt" onclick="toggleSlow()">🐢 Vitesse : ${S.slowAudio ? 'Lente' : 'Normale'}</button>
     <button class="btn ghost mt" onclick="cycleVoix()">🗣️ Voix : ${nomVoix()}</button>
@@ -2116,6 +2156,258 @@ function finishReg() {
     <button class="btn" onclick="renderRegisterHome()">Terminé</button>
     ${buildRegQueue(regCat).length ? `<button class="btn sec mt" onclick="startReg()">Continuer (${buildRegQueue(regCat).length})</button>` : ''}
   `;
+}
+
+/* ============================================================
+   SÉLECTION DÉTERMINISTE DU JOUR (même contenu toute la journée,
+   nouveau contenu chaque jour, en rotation)
+   ============================================================ */
+function daySeed() { return Math.floor(Date.parse(todayStr()) / DAY); }
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+// renvoie n ÉLÉMENTS de arr, mélange déterministe selon seed
+function seededPickVals(arr, n, seed) {
+  const idx = arr.map((_, i) => i), rnd = mulberry32(seed >>> 0);
+  for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
+  return idx.slice(0, Math.min(n, arr.length)).map(i => arr[i]);
+}
+function deaccent(s) {
+  return (s || '').normalize ? s.normalize('NFD').replace(/[̀-ͯ]/g, '') : (s || '');
+}
+
+/* ============================================================
+   PRONONCIATION — le R (surtout roulé) et la ñ. Drill quotidien.
+   ============================================================ */
+let PSES = null;
+function hlR(word) { return String(word).replace(/r+/g, m => `<span class="hlr">${m}</span>`).replace(/ñ/g, '<span class="hln">ñ</span>'); }
+function hlEne(word) { return String(word).replace(/ñ/g, '<span class="hln">ñ</span>'); }
+function pronSay(text) { speak(text); }
+function pronSayTw() { if (PSES) speak(PSES.twister.es); }
+
+function pronSession() {
+  const seed = daySeed(), P = PRON;
+  const rr = P.R.filter(x => x.k === 'rr'), ini = P.R.filter(x => x.k === 'ini'), clus = P.R.filter(x => x.k === 'clus');
+  const rItems = [].concat(
+    seededPickVals(rr, 3, seed * 7 + 1),
+    seededPickVals(ini, 2, seed * 7 + 2),
+    seededPickVals(clus, 1, seed * 7 + 3)
+  );
+  return {
+    tip: P.tipsR[seed % P.tipsR.length],
+    rItems,
+    pairs: seededPickVals(P.pairs, 3, seed * 7 + 4),
+    eneItems: seededPickVals(P.ene, 3, seed * 7 + 5),
+    twister: P.twisters[seed % P.twisters.length]
+  };
+}
+function pronMark(btn, ok) {
+  const row = btn.closest('.prow'); if (!row) return;
+  row.classList.remove('m-ok', 'm-again');
+  row.classList.add(ok ? 'm-ok' : 'm-again');
+}
+function renderPronHome() {
+  window.scrollTo(0, 0);
+  PSES = pronSession();
+  const dp = dailyProgress();
+  const rRow = it => `
+    <div class="prow">
+      <button class="pspk" onclick="pronSay('${it.es}')">🔊</button>
+      <div class="pw"><div class="pes">${hlR(it.es)}</div><div class="pfr">${it.fr}</div></div>
+      <div class="pmark">
+        <button class="pm again" onclick="pronMark(this,0)" title="À retravailler">🔁</button>
+        <button class="pm ok" onclick="pronMark(this,1)" title="Maîtrisé">✅</button>
+      </div>
+    </div>`;
+  const pairRow = p => `
+    <div class="ppair">
+      <div class="pp"><button class="pspk sm" onclick="pronSay('${p.r}')">🔊</button><div><b>${hlR(p.r)}</b><small>${p.fr}</small></div></div>
+      <div class="ppx">↔</div>
+      <div class="pp"><button class="pspk sm" onclick="pronSay('${p.rr}')">🔊</button><div><b>${hlR(p.rr)}</b><small>${p.frr}</small></div></div>
+    </div>`;
+  const eneRow = it => `
+    <div class="prow">
+      <button class="pspk" onclick="pronSay('${it.es}')">🔊</button>
+      <div class="pw"><div class="pes">${hlEne(it.es)}</div><div class="pfr">${it.fr}</div></div>
+    </div>`;
+  app.innerHTML = `
+    <div class="card">
+      <h2>Prononciation du jour ${dp.p >= 1 ? '✅' : ''}</h2>
+      <div class="sub">Le nerf de la guerre pour un francophone : le <b style="color:var(--txt)">R roulé</b>. Écoute le modèle (voix castillane 🔊), répète à voix haute, auto-évalue-toi. On ne triche pas avec l'oreille.</div>
+    </div>
+
+    <div class="card" style="border-color:var(--accent)">
+      <div class="th" style="color:var(--accent)">🎯 Technique du R</div>
+      <div style="font-size:14.5px;line-height:1.55;margin-top:6px">${PSES.tip}</div>
+      <div class="prowdrill mt">
+        <button class="btn sec" onclick="pronSay('rrra rrre rrri rrro rrru')">🔊 rra · rre · rri · rro · rru</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="th">🔊 Mots du jour — le R</div>
+      <div class="cleg" style="margin-bottom:10px">Rouge = R roulé (rr, r initial, r après n/l/s). Écoute, répète, coche.</div>
+      ${PSES.rItems.map(rRow).join('')}
+    </div>
+
+    <div class="card">
+      <div class="th">⚖️ Paires minimales — un battement vs vibration</div>
+      <div class="cleg" style="margin-bottom:10px">Le sens change ! Entends-tu la différence ?</div>
+      ${PSES.pairs.map(pairRow).join('')}
+    </div>
+
+    <div class="card">
+      <div class="th">Ñ · le son « gn »</div>
+      <div style="font-size:13.5px;line-height:1.5;margin:6px 0 12px;color:var(--muted)">${PRON.tipEne}</div>
+      ${PSES.eneItems.map(eneRow).join('')}
+    </div>
+
+    <div class="card" style="border-color:var(--purple)">
+      <div class="th" style="color:var(--purple)">🌀 Trabalenguas — le boss</div>
+      <div class="ptw mt">${hlR(PSES.twister.es)}</div>
+      <div class="pfr" style="margin:8px 0">${PSES.twister.fr}</div>
+      <button class="btn sec" onclick="pronSayTw()">🔊 Écouter en entier</button>
+      <div class="expl mt" style="border-color:var(--purple)">${PSES.twister.note}</div>
+    </div>
+
+    ${dp.p >= 1
+      ? `<div class="card center" style="border-color:var(--good)"><b style="color:var(--good)">✅ Session validée aujourd'hui.</b><div class="sub mt">Tu peux continuer à t'entraîner autant que tu veux. Nouveau lot demain.</div></div>`
+      : `<button class="btn" onclick="pronFinish()">✅ J'ai travaillé ma prononciation à voix haute</button>`}
+    <button class="btn ghost mt" onclick="setView('home')">Retour</button>
+  `;
+}
+function pronFinish() {
+  resetDailyIfNeeded();
+  if (!S.daily.pron) { S.daily.pron = 1; S.pronDays = (S.pronDays || 0) + 1; addXp(10); }
+  save(); checkDailyDone(); checkAchievements();
+  toast('👅 Prononciation validée — +10 XP');
+  setView('home');
+}
+
+/* ============================================================
+   CONJUGAISON — obligatoire : 3 verbes × 3 temps, en entier.
+   ============================================================ */
+const CONJ_TENSES = [
+  { k: 'pres', name: "Présent de l'indicatif", ref: null, hint: 'Le présent courant : yo hablo, tú hablas…' },
+  { k: 'indef', name: 'Passé simple · indefinido', ref: 'pasados', hint: 'Action ponctuelle et achevée : ayer, el lunes, de repente…' },
+  { k: 'imperf', name: 'Imparfait · imperfecto', ref: 'pasados', hint: 'Décor, habitude, description : antes, siempre, mientras…' },
+  { k: 'fut', name: 'Futur simple', ref: 'futuro', hint: 'Actions futures : mañana, la semana que viene…' },
+  { k: 'cond', name: 'Conditionnel', ref: 'condicional', hint: 'Politesse, hypothèse, futur du passé : me gustaría, dijo que vendría…' },
+  { k: 'subjpres', name: 'Subjonctif présent', ref: 'subjpres', hint: 'Volonté, émotion, doute : quiero que…, no creo que…' },
+  { k: 'subjimp', name: 'Subjonctif imparfait', ref: 'subjimp', hint: 'Concordance au passé, hypothèse : si tuviera…, quería que…' }
+];
+const CONJ_PRON = ['yo', 'tú', 'él/ella', 'nosotros', 'vosotros', 'ellos'];
+const CONJ_TMAP = {}; CONJ_TENSES.forEach(t => CONJ_TMAP[t.k] = t);
+
+function conjToday() {
+  const seed = daySeed();
+  const tenses = seededPickVals(CONJ_TENSES, 3, seed * 13 + 1);
+  const regs = [], irrs = [];
+  CONJUG.forEach((v, i) => { (v.irr ? irrs : regs).push(i); });
+  const a = seededPickVals(regs, 1, seed * 13 + 2)[0];             // au moins 1 régulier
+  const b = seededPickVals(irrs, 1, seed * 13 + 3)[0];             // au moins 1 irrégulier
+  const rest = CONJUG.map((_, i) => i).filter(i => i !== a && i !== b);
+  const c = seededPickVals(rest, 1, seed * 13 + 4)[0];
+  const order = seededPickVals([a, b, c], 3, seed * 13 + 5);       // ordre mélangé
+  return order.map((vi, k) => ({ vi, tk: tenses[k].k }));
+}
+function conjState() {
+  const t = todayStr();
+  if (!S.conjState || S.conjState.date !== t)
+    S.conjState = { date: t, done: [false, false, false], score: [0, 0, 0], ans: [['', '', '', '', '', ''], ['', '', '', '', '', ''], ['', '', '', '', '', '']] };
+  return S.conjState;
+}
+function normConj(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' '); }
+function conjFieldClass(u, c) {
+  const nu = normConj(u), nc = normConj(c);
+  if (nu === nc && nu) return 'ok';
+  if (nu && deaccent(nu) === deaccent(nc)) return 'accent';
+  return 'bad';
+}
+let conjFocus = null;
+function conjInsert(ch) {
+  const el = conjFocus && document.getElementById(conjFocus);
+  if (!el) { toast('Touche d\'abord un champ 🙂'); return; }
+  const s = el.selectionStart != null ? el.selectionStart : el.value.length;
+  const e = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+  el.value = el.value.slice(0, s) + ch + el.value.slice(e);
+  el.focus(); const p = s + ch.length; try { el.setSelectionRange(p, p); } catch (x) {}
+}
+function renderConjHome() {
+  window.scrollTo(0, 0);
+  const today = conjToday(), st = conjState(), dp = dailyProgress();
+  const cards = today.map((ch, k) => {
+    const v = CONJUG[ch.vi], tm = CONJ_TMAP[ch.tk], forms = v.t[ch.tk];
+    const done = st.done[k];
+    const inputs = CONJ_PRON.map((pr, p) => {
+      const id = 'cj-' + k + '-' + p;
+      const val = escapeHtml((st.ans[k] && st.ans[k][p]) || '');
+      let res = '';
+      if (done) {
+        const cls = conjFieldClass(st.ans[k][p], forms[p]);
+        res = `<div class="cjres ${cls}">${cls === 'ok' ? '✓ ' + forms[p] : cls === 'accent' ? '≈ accent → <b>' + forms[p] + '</b>' : '✗ → <b>' + forms[p] + '</b>'}</div>`;
+      }
+      return `<div class="cjfield">
+        <label>${pr}</label>
+        <input id="${id}" type="text" value="${val}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" lang="es" onfocus="conjFocus=this.id" placeholder="…">
+        ${res}</div>`;
+    }).join('');
+    const refLink = tm.ref ? `<button class="btn ghost mt" style="font-size:13px;padding:8px" onclick="renderTense('${tm.ref}')">📖 Revoir : ${tm.name}</button>` : '';
+    return `
+      <div class="card cjcard ${done ? 'done' : ''}">
+        <div class="cjhead">
+          <div>
+            <div class="cjinf">${v.inf} <span class="cjfr">— ${v.fr}</span></div>
+            <div class="cjtag"><span class="pill ${v.irr ? 'warn' : ''}">${v.irr ? 'irrégulier' : 'régulier'}</span> <b style="color:var(--blue)">${tm.name}</b></div>
+          </div>
+          ${done ? `<div class="cjscore ${st.score[k] === 6 ? 'perfect' : ''}">${st.score[k]}/6</div>` : ''}
+        </div>
+        <div class="cjhint">${tm.hint}</div>
+        <div class="cjgrid">${inputs}</div>
+        <button class="btn ${done ? 'sec' : ''} mt" onclick="checkConj(${k})">${done ? 'Re-corriger' : 'Corriger'}</button>
+        ${done ? refLink : ''}
+      </div>`;
+  }).join('');
+  app.innerHTML = `
+    <div class="accbar" id="accbar">
+      ${['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü'].map(c => `<button onclick="conjInsert('${c}')">${c}</button>`).join('')}
+    </div>
+    <div class="card">
+      <h2>Conjugaison du jour ${dp.j >= 1 ? '🏆' : ''}</h2>
+      <div class="sub">Obligatoire. <b style="color:var(--txt)">3 verbes</b>, <b style="color:var(--txt)">3 temps différents</b>, à conjuguer <b style="color:var(--txt)">en entier</b> (les 6 personnes). Écris tout, puis « Corriger » : je vérifie chaque forme, <b style="color:var(--txt)">accents compris</b>. Barre d'accents en haut.</div>
+      <div class="sub center mt" style="font-weight:800;color:${dp.j >= 1 ? 'var(--good)' : 'var(--muted)'}">${st.done.filter(Boolean).length}/${GOAL_CONJ} verbes validés aujourd'hui</div>
+    </div>
+    ${cards}
+    <button class="btn ghost mt" onclick="setView('home')">Retour</button>
+  `;
+}
+function checkConj(k) {
+  resetDailyIfNeeded();
+  const today = conjToday(), ch = today[k], v = CONJUG[ch.vi], forms = v.t[ch.tk], st = conjState();
+  const ans = [];
+  for (let p = 0; p < 6; p++) { const el = document.getElementById('cj-' + k + '-' + p); ans[p] = el ? el.value : ''; }
+  st.ans[k] = ans;
+  let score = 0;
+  for (let p = 0; p < 6; p++) if (normConj(ans[p]) === normConj(forms[p])) score++;
+  st.score[k] = score;
+  const wasDone = st.done[k];
+  if (!wasDone) {
+    st.done[k] = true;
+    S.conjDone = (S.conjDone || 0) + 1;
+    if (score === 6) S.conjPerfect = (S.conjPerfect || 0) + 1;
+    addXp(3 + score);
+  }
+  S.daily.conj = st.done.filter(Boolean).length;
+  save(); checkDailyDone(); checkAchievements();
+  renderConjHome();
+  const el = document.getElementById('cj-' + k + '-0');
+  if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  if (!wasDone) toast(score === 6 ? '✅ Parfait — 6/6 !' : score >= 4 ? `👍 ${score}/6 — regarde les formes en rouge` : `${score}/6 — revois ce temps, c'est comme ça qu'on apprend`);
 }
 
 /* ---------- Boot ---------- */
