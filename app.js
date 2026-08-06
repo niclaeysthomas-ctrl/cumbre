@@ -16,6 +16,7 @@ const DEFAULT = {
   cards: {},            // index -> {ease, interval(jours), reps, due(ms), lapses, introduced}
   shadow: {},           // id de texte -> true (shadowing travaillé)
   dudas: {},            // id de mini-cours -> true (point consulté)
+  lecturas: {},         // id de lecture -> true (lue)
   newToday: 0,
   newDate: todayStr(),
   reviewsDone: 0,       // total révisions cartes (stat)
@@ -254,6 +255,73 @@ function refreshHeader() {
   document.getElementById('hlevel').textContent = levelFromXp(S.xp).lv;
 }
 
+/* ============================================================
+   LECTURA DEL DÍA — textes C1-C2 avec aides à la compréhension
+   ============================================================ */
+function lecOfToday(){ const doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/864e5); return LECTURAS[doy%LECTURAS.length]; }
+function lecDone(id){ return S.lecturas && S.lecturas[id]; }
+let LEC=null;
+function renderLecturaHome(){
+  window.scrollTo(0,0);
+  const hoy=lecOfToday(), done=LECTURAS.filter(l=>lecDone(l.id)).length;
+  const rows=LECTURAS.map(l=>`
+    <button class="tile" onclick="openLectura('${l.id}')">
+      <div class="ic e">${lecDone(l.id)?'✅':'📖'}</div>
+      <div class="body"><div class="t">${l.title}</div><div class="d">${l.theme}</div></div>
+      <div class="badge zero">${l.level}</div>
+    </button>`).join('');
+  app.innerHTML=`
+    <div class="card" style="border-color:var(--accent)">
+      <h2>📖 Lectura del día</h2>
+      <div class="sub">Des textes C1-C2 que j'écris pour toi, sur des sujets d'avenir. Touche un mot souligné pour son sens, révise le glossaire et les expressions, puis teste ta compréhension. Lire de l'espagnol authentique, c'est ce qui fait décoller à ce niveau.</div>
+      <button class="btn mt" onclick="openLectura('${hoy.id}')">${lecDone(hoy.id)?'Relire':'Lire'} celle du jour · ${hoy.level}</button>
+      <div class="sub center mt" style="font-size:13px">« ${hoy.title} »</div>
+    </div>
+    <div class="sub mb" style="padding-left:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12px">Toutes les lectures · ${done}/${LECTURAS.length} lues</div>
+    ${rows}
+    <button class="btn ghost mt" onclick="setView('home')">Accueil</button>
+  `;
+}
+function glossHtml(txt){ return txt.replace(/\[([^\]]+)\]/g,'<span class="gl" onclick="lecGloss(this)">$1</span>'); }
+function lecGloss(el){ const w=el.textContent, g=LEC&&LEC.glosario[w]; if(g) toast('📘 '+w+' — '+g); }
+function openLectura(id){
+  const l=LECTURAS.find(x=>x.id===id); if(!l) return;
+  LEC={id, glosario:l.glosario, preguntas:l.preguntas, correct:0};
+  window.scrollTo(0,0);
+  app.innerHTML=`
+    <div class="qmeta"><span>📖 Lectura · <span style="color:var(--accent)">${l.level}</span></span><span>${l.theme}</span></div>
+    <div class="card"><h2 style="font-size:19px">${l.title}</h2><div class="sub mt" style="font-size:13px">${l.intro}</div></div>
+    <div class="card lectext">${l.parrafos.map(p=>`<p>${glossHtml(p)}</p>`).join('')}</div>
+    <div class="sub center" style="font-size:12px;margin:-4px 0 14px">👆 Touche les mots <span class="gl">soulignés</span> pour leur sens.</div>
+    <div class="card"><h3 style="font-size:15px;margin-bottom:10px">📘 Glosario</h3>
+      ${Object.entries(l.glosario).map(([w,g])=>`<div class="glrow"><b>${w}</b><span>${g}</span></div>`).join('')}</div>
+    <div class="card"><h3 style="font-size:15px;margin-bottom:10px">🔑 Expresiones clave · à réutiliser</h3>
+      ${l.claves.map(([es,fr])=>`<div class="glrow"><b>${es}</b><span>${fr}</span></div>`).join('')}</div>
+    <div class="card"><h3 style="font-size:15px;margin-bottom:12px">✍️ ¿Lo has entendido?</h3>
+      ${l.preguntas.map((q,qi)=>`<div class="lq" data-a="${q.a}">
+        <div style="font-weight:700;margin-bottom:8px">${qi+1}. ${q.q}</div>
+        <div id="lqo-${qi}">${q.opts.map((o,oi)=>`<button class="opt" onclick="lecAnswer(${qi},${oi})">${o}</button>`).join('')}</div>
+        <div id="lqe-${qi}" class="expl" style="display:none"></div></div>`).join('')}
+    </div>
+    <button class="btn ghost mt" onclick="renderLecturaHome()">← Toutes les lectures</button>
+  `;
+}
+function lecAnswer(qi,oi){
+  const box=document.querySelectorAll('.lq')[qi];
+  if(!box||box.dataset.answered) return;
+  box.dataset.answered='1';
+  const a=+box.dataset.a;
+  box.querySelectorAll('#lqo-'+qi+' .opt').forEach((b,i)=>{ b.setAttribute('disabled','');
+    if(i===a) b.classList.add('good'); else if(i===oi) b.classList.add('bad'); else b.classList.add('dim'); });
+  const ex=document.getElementById('lqe-'+qi); if(ex){ ex.textContent=LEC.preguntas[qi].exp; ex.style.display='block'; }
+  if(oi===a) LEC.correct++;
+  addXp(oi===a?3:1);
+  if([...document.querySelectorAll('.lq')].every(b=>b.dataset.answered)){
+    if(!S.lecturas) S.lecturas={}; S.lecturas[LEC.id]=true; markStudy(); save();
+    toast('📖 ¡Lectura terminada! '+LEC.correct+'/'+LEC.preguntas.length);
+  }
+}
+
 function render() {
   refreshHeader();
   document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
@@ -263,6 +331,7 @@ function render() {
   if (view === 'anki') return renderAnkiHome();
   if (view === 'listen') return renderListenHome();
   if (view === 'shadow') return renderShadowHome();
+  if (view === 'lectura') return renderLecturaHome();
   if (view === 'pron') return renderPronHome();
   if (view === 'conj') return renderConjHome();
   if (view === 'exam') return renderExamHome();
@@ -426,6 +495,13 @@ function renderHome() {
     </div>
 
     <div class="sub mb" style="padding-left:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12px">À faire aujourd'hui</div>
+
+    ${(typeof LECTURAS !== 'undefined') ? `
+    <button class="tile" style="${lecDone(lecOfToday().id)?'':'border-color:var(--accent)'}" onclick="setView('lectura')">
+      <div class="ic a">📖</div>
+      <div class="body"><div class="t">Lecture du jour · ${lecOfToday().level}</div><div class="d">« ${lecOfToday().title} » — texte + aides</div></div>
+      <div class="badge ${lecDone(lecOfToday().id)?'':'zero'}">${lecDone(lecOfToday().id)?'✓':'!'}</div>
+    </button>` : ''}
 
     ${mistakeCount() > 0 ? `
     <button class="tile" onclick="startMistakes()" style="border-color:var(--bad)">

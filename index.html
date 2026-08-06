@@ -88,6 +88,15 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 .opt.bad .lab{background:var(--bad);color:#2a0509}
 .opt.dim{opacity:.5}
 .opt[disabled]{cursor:default}
+/* lectura del día */
+.lectext p{font-size:16.5px;line-height:1.72;margin-bottom:15px;color:var(--txt)}
+.lectext p:last-child{margin-bottom:0}
+.gl{color:var(--accent);border-bottom:1.5px dotted var(--accent);cursor:pointer;font-weight:600}
+.glrow{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px;line-height:1.45}
+.glrow:last-child{border-bottom:none}
+.glrow b{color:var(--txt);flex:0 0 42%;font-weight:700}
+.glrow span{color:var(--muted);flex:1}
+.lq{margin-bottom:16px;padding-bottom:4px}
 
 .stem{font-size:19px;font-weight:600;line-height:1.5;margin:6px 0 18px}
 .stem .blank{color:var(--accent);font-weight:800}
@@ -334,8 +343,11 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 <script src="vocab-es4.js?v=1"></script>
 <script src="vocab-es5.js?v=1"></script>
 <script src="vocab-es6.js?v=2"></script>
+<script src="vocab-es7.js?v=1"></script>
 <script src="translations.js?v=1"></script>
 <script src="translations2.js?v=1"></script>
+<script src="translations3.js?v=1"></script>
+<script src="data-lecturas.js?v=1"></script>
 <script src="data-shadowing.js?v=1"></script>
 <script src="data-dudas.js?v=1"></script>
 <script src="listening-long.js?v=2"></script>
@@ -347,6 +359,6 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 <script src="tenses.js?v=1"></script>
 <script src="data-pron.js?v=1"></script>
 <script src="verbs-conj.js?v=1"></script>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>
