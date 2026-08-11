@@ -145,6 +145,9 @@ function seededOrder(n, seed) {
   for (let i = n - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
 }
+/* mots ajoutés par l'utilisateur (depuis la Lecture du jour) : ré-injectés
+   dans le deck à chaque ouverture, APRÈS le vocabulaire intégré (indices stables) */
+if (S.userVocab && S.userVocab.length) window.VOCAB = window.VOCAB.concat(S.userVocab);
 const VOCAB_ORDER = seededOrder(VOCAB.length, 990);
 function newAvailable(unlimited) {
   const cap = unlimited ? Infinity : Math.max(0, NEW_PER_DAY - S.newToday);
@@ -282,8 +285,43 @@ function renderLecturaHome(){
     <button class="btn ghost mt" onclick="setView('home')">Accueil</button>
   `;
 }
-function glossHtml(txt){ return txt.replace(/\[([^\]]+)\]/g,'<span class="gl" onclick="lecGloss(this)">$1</span>'); }
-function lecGloss(el){ const w=el.textContent, g=LEC&&LEC.glosario[w]; if(g) toast('📘 '+w+' — '+g); }
+function glossHtml(txt){ return txt.replace(/\[([^\]]+)\]/g,(m,w)=>`<span class="gl${wordInDeck(w)?' added':''}" onclick="lecGloss(this)">${w}</span>`); }
+function lecGloss(el){ const w=el.textContent.trim(); const g=(LEC&&LEC.glosario[w])||''; lecWordSheet(w,g); }
+
+/* --- ajout d'un mot de la lecture aux cartes Anki --- */
+function wordInDeck(w){ const n=String(w).toLowerCase().trim(); return VOCAB.some(v=>String(v[0]).toLowerCase().trim()===n); }
+function closeWordSheet(){ const s=document.getElementById('wsheet'); if(s) s.remove(); }
+function lecWordSheet(word, gloss){
+  closeWordSheet();
+  const inDeck=wordInDeck(word);
+  const sheet=document.createElement('div'); sheet.id='wsheet'; sheet.className='wsheet';
+  const box=document.createElement('div'); box.className='wsheet-in';
+  const head=document.createElement('div'); head.style.cssText='display:flex;align-items:center;gap:10px';
+  const b=document.createElement('b'); b.style.fontSize='18px'; b.textContent=word;
+  const spk=document.createElement('button'); spk.textContent='🔊';
+  spk.style.cssText='background:none;border:1px solid var(--line);border-radius:8px;padding:2px 8px;color:var(--muted);font-size:14px';
+  spk.onclick=()=>speak(word);
+  const x=document.createElement('button'); x.textContent='✕';
+  x.style.cssText='margin-left:auto;background:none;border:none;color:var(--muted);font-size:18px';
+  x.onclick=closeWordSheet;
+  head.append(b,spk,x);
+  const def=document.createElement('div'); def.className='sub mt'; def.style.cssText='font-size:14px;color:var(--txt)'; def.textContent=gloss||'—';
+  const add=document.createElement('button'); add.id='wsheetAdd'; add.className='btn mt'+(inDeck?' sec':'');
+  add.textContent=inDeck?'✓ Déjà dans tes cartes':'🃏 Ajouter aux cartes Anki';
+  if(inDeck) add.disabled=true; else add.onclick=()=>addWordToAnki(word, gloss);
+  box.append(head,def,add); sheet.append(box); document.body.appendChild(sheet);
+}
+function addWordToAnki(word, gloss){
+  const w=String(word).trim();
+  if(wordInDeck(w)){ toast('Déjà dans tes cartes ✓'); return; }
+  if(!S.userVocab) S.userVocab=[];
+  const card=[w, gloss||w, '', 'Lectura'];
+  S.userVocab.push(card); VOCAB.push(card); VOCAB_ORDER.push(VOCAB.length-1);
+  save();
+  toast('🃏 « '+w+' » ajouté à tes cartes');
+  const btn=document.getElementById('wsheetAdd'); if(btn){ btn.textContent='✓ Ajouté à tes cartes'; btn.className='btn sec mt'; btn.disabled=true; }
+  document.querySelectorAll('.gl').forEach(el=>{ if(el.textContent.trim().toLowerCase()===w.toLowerCase()) el.classList.add('added'); });
+}
 function openLectura(id){
   const l=LECTURAS.find(x=>x.id===id); if(!l) return;
   LEC={id, glosario:l.glosario, preguntas:l.preguntas, correct:0};
@@ -292,7 +330,7 @@ function openLectura(id){
     <div class="qmeta"><span>📖 Lectura · <span style="color:var(--accent)">${l.level}</span></span><span>${l.theme}</span></div>
     <div class="card"><h2 style="font-size:19px">${l.title}</h2><div class="sub mt" style="font-size:13px">${l.intro}</div></div>
     <div class="card lectext">${l.parrafos.map(p=>`<p>${glossHtml(p)}</p>`).join('')}</div>
-    <div class="sub center" style="font-size:12px;margin:-4px 0 14px">👆 Touche les mots <span class="gl">soulignés</span> pour leur sens.</div>
+    <div class="sub center" style="font-size:12px;margin:-4px 0 14px">👆 Touche un mot <span class="gl">souligné</span> : son sens s'affiche, et tu peux l'<b style="color:var(--txt)">ajouter à tes cartes Anki</b>.</div>
     <div class="card"><h3 style="font-size:15px;margin-bottom:10px">📘 Glosario</h3>
       ${Object.entries(l.glosario).map(([w,g])=>`<div class="glrow"><b>${w}</b><span>${g}</span></div>`).join('')}</div>
     <div class="card"><h3 style="font-size:15px;margin-bottom:10px">🔑 Expresiones clave · à réutiliser</h3>

@@ -92,6 +92,10 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 .lectext p{font-size:16.5px;line-height:1.72;margin-bottom:15px;color:var(--txt)}
 .lectext p:last-child{margin-bottom:0}
 .gl{color:var(--accent);border-bottom:1.5px dotted var(--accent);cursor:pointer;font-weight:600}
+.gl.added{color:var(--good);border-bottom:1.5px solid var(--good)}
+.gl.added::after{content:" ✓";font-size:11px;vertical-align:top}
+.wsheet{position:fixed;left:0;right:0;bottom:calc(72px + env(safe-area-inset-bottom));z-index:80;padding:0 12px}
+.wsheet-in{max-width:640px;margin:0 auto;background:var(--card2);border:1px solid var(--accent);border-radius:16px;padding:14px 16px;box-shadow:var(--sh)}
 .glrow{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px;line-height:1.45}
 .glrow:last-child{border-bottom:none}
 .glrow b{color:var(--txt);flex:0 0 42%;font-weight:700}
@@ -361,6 +365,6 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 <script src="verbs-conj.js?v=1"></script>
 <script src="data-hablar.js?v=1"></script>
 <script src="hablar.js?v=1"></script>
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>
