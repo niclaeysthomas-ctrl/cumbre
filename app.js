@@ -333,6 +333,7 @@ function render() {
   if (view === 'shadow') return renderShadowHome();
   if (view === 'lectura') return renderLecturaHome();
   if (view === 'pron') return renderPronHome();
+  if (view === 'hablar') return renderHablarHome();
   if (view === 'conj') return renderConjHome();
   if (view === 'exam') return renderExamHome();
   if (view === 'traduire') return renderTransHome();
@@ -526,6 +527,12 @@ function renderHome() {
       <div class="ic a">👅</div>
       <div class="body"><div class="t">Prononciation du jour</div><div class="d">Le R roulé & la ñ — modèle audio + technique</div></div>
       <div class="badge ${dp.p>=1?'':'zero'}">${dp.p>=1?'✓':'!'}</div>
+    </button>
+
+    <button class="tile" onclick="setView('hablar')">
+      <div class="ic l">🗣️</div>
+      <div class="body"><div class="t">Hablar — parler d'un sujet</div><div class="d">Monologue guidé (DELE) : plan, chrono, analyse & modèle</div></div>
+      <div class="badge zero">${(typeof HABLAR!=='undefined')?HABLAR.length:0}</div>
     </button>
 
     <button class="tile" onclick="setView('grammar')">
