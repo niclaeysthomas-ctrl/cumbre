@@ -1,8 +1,8 @@
 /* CUMBRE — service worker : cache offline (app shell) */
-const CACHE = 'cumbre-v18';
+const CACHE = 'cumbre-v19';
 const ASSETS = [
   'index.html',
-  'app.js?v=17',
+  'app.js?v=18',
   'data-hablar.js?v=1',
   'hablar.js?v=1',
   'data.js?v=2',

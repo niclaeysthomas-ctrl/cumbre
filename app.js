@@ -5,6 +5,7 @@
 
 const DAY = 86400000;
 const NEW_PER_DAY = 15;         // nouvelles cartes introduites par jour
+const MAX_INT = 365;            // plafond d'intervalle (jours) — un mot revu ~1×/an
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 /* ---------- État persistant ---------- */
@@ -187,6 +188,10 @@ function buildThemeQueue(theme) {
 // rating: 0 again, 1 hard, 2 good, 3 easy
 function rateCard(i, rating) {
   const c = cardState(i);
+  // Pour le diagnostic : était-ce une VRAIE révision (carte mûre/jeune déjà due) ?
+  const wasReview = !!c.introduced && c.interval >= 1;
+  const wasMature = c.interval >= 21;
+  const prevInt = c.interval;
   if (!c.introduced) { c.introduced = true; S.newToday += 1; }
   const now = Date.now();
   if (rating === 0) {                       // Again
@@ -203,11 +208,18 @@ function rateCard(i, rating) {
     }
     if (rating === 1) c.ease = Math.max(1.3, c.ease - 0.15);
     if (rating === 3) c.ease = c.ease + 0.15;
+    // Fuzz : ±6 % pour disperser les révisions (évite les paquets le même jour)
+    if (c.interval >= 3) { const f = 1 + (Math.random() * 0.12 - 0.06); c.interval = Math.max(2, Math.round(c.interval * f)); }
+    if (c.interval > MAX_INT) c.interval = MAX_INT;   // plafond
     c.reps += 1;
     c.due = now + Math.max(1, c.interval) * DAY;
   }
   S.cards[i] = c;
   S.reviewsDone += 1;
+  // journal des révisions (pour le diagnostic d'efficacité) — borné
+  if (!S.revLog) S.revLog = [];
+  S.revLog.push({ t: now, r: rating, v: wasReview ? 1 : 0, m: wasMature ? 1 : 0, pi: prevInt });
+  if (S.revLog.length > 3000) S.revLog = S.revLog.slice(-3000);
   addXp(rating === 0 ? 1 : 3);
   save();
 }
@@ -1021,6 +1033,104 @@ function finishLesson() {
   `;
 }
 
+/* ---------- DIAGNOSTIC : efficacité du SRS ---------- */
+function srsStats() {
+  const log = S.revLog || [];
+  const now = Date.now();
+  const rev = log.filter(x => x.v);                 // vraies révisions (carte déjà mûrie)
+  const mat = log.filter(x => x.m);                 // révisions de cartes ancrées (≥21 j)
+  const nRev = rev.length;
+  const retention = nRev ? Math.round(rev.filter(x => x.r >= 2).length / nRev * 100) : null;
+  const matRet = mat.length >= 10 ? Math.round(mat.filter(x => x.r >= 2).length / mat.length * 100) : null;
+  const againRate = nRev ? Math.round(rev.filter(x => x.r === 0).length / nRev * 100) : null;
+  const dist = [0, 0, 0, 0]; rev.forEach(x => dist[x.r]++);
+  // rythme 30 j
+  const days = {}; log.filter(x => x.t >= now - 30 * DAY).forEach(x => { const d = new Date(x.t).toISOString().slice(0, 10); days[d] = (days[d] || 0) + 1; });
+  const activeDays = Object.keys(days).length;
+  const last30 = Object.values(days).reduce((a, b) => a + b, 0);
+  // maturation du deck
+  let bLearn = 0, bYoung = 0, bMat = 0;
+  for (const i in S.cards) { const c = S.cards[i]; if (!c.introduced) continue; if (c.interval >= 21) bMat++; else if (c.interval >= 7) bYoung++; else bLearn++; }
+  // charge à venir (7 jours)
+  const fore = [0, 0, 0, 0, 0, 0, 0];
+  for (const i in S.cards) { const c = S.cards[i]; if (!c.introduced) continue; const d = Math.floor((c.due - now) / DAY); if (d >= 0 && d < 7) fore[d]++; else if (c.due <= now) fore[0]++; }
+  return { nRev, total: log.length, retention, matRet, againRate, dist, last30, activeDays, avgDay: activeDays ? Math.round(last30 / activeDays) : 0, bLearn, bYoung, bMat, fore };
+}
+function renderSrsDiag() {
+  window.scrollTo(0, 0);
+  const s = srsStats();
+  const enough = s.retention != null && s.nRev >= 30;
+  let verdict, vcol;
+  if (!enough) { verdict = "Il faut environ 30 révisions de cartes déjà apprises pour un diagnostic fiable. L'app enregistre déjà tout — reviens ici après quelques jours de révisions."; vcol = 'var(--muted)'; }
+  else if (s.retention >= 92) { verdict = "Rétention très élevée. Excellent pour la mémoire, mais tu revois sans doute tes cartes un peu trop tôt : tu peux te permettre plus de nouvelles cartes par jour sans risque."; vcol = 'var(--blue)'; }
+  else if (s.retention >= 82) { verdict = "Zone idéale (~85–90 %). L'algorithme est bien calibré : tu revois chaque mot juste avant de l'oublier, sans perdre de temps. C'est exactement le but d'un SRS."; vcol = 'var(--good)'; }
+  else { verdict = "Rétention un peu basse : trop de mots oubliés au moment de les revoir. Réflexe : appuie sur « Encore » / « Difficile » sans culpabiliser (ça raccourcit les intervalles), et n'introduis pas trop de nouvelles cartes d'un coup."; vcol = 'var(--accent)'; }
+  const distTot = Math.max(1, s.dist.reduce((a, b) => a + b, 0));
+  const bar = (label, n, col) => `
+    <div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px">
+      <span style="width:74px;color:var(--muted)">${label}</span>
+      <div style="flex:1;height:10px;background:var(--bg2);border-radius:6px;overflow:hidden"><i style="display:block;height:100%;width:${Math.round(n / distTot * 100)}%;background:${col}"></i></div>
+      <span style="width:52px;text-align:right;font-weight:700">${Math.round(n / distTot * 100)}%</span>
+    </div>`;
+  const foreMax = Math.max(1, ...s.fore);
+  const foreBars = s.fore.map((n, k) => `
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="width:100%;height:70px;display:flex;align-items:flex-end"><div style="width:100%;background:var(--accent);border-radius:4px;height:${Math.round(n / foreMax * 70)}px;min-height:${n ? 3 : 0}px"></div></div>
+      <small style="font-size:10px;color:var(--muted)">${k === 0 ? 'auj' : 'J+' + k}</small>
+      <small style="font-size:10px;color:var(--txt);font-weight:700">${n}</small>
+    </div>`).join('');
+  const matur = s.bLearn + s.bYoung + s.bMat;
+  app.innerHTML = `
+    <button class="btn ghost" style="width:auto;padding:8px 14px;margin-bottom:12px" onclick="renderAnkiHome()">‹ Cartes</button>
+    <div class="card" style="border-color:${vcol}">
+      <h2>📊 Efficacité de l'algorithme</h2>
+      <div class="sub mt">La bonne mesure d'un système de révision espacée n'est pas « combien de cartes », mais le <b style="color:var(--txt)">taux de rétention</b> : le % de cartes que tu retrouves correctement au moment où elles reviennent. La cible d'un bon SRS est <b style="color:var(--txt)">85–90 %</b> — assez haut pour ne pas oublier, assez bas pour ne pas réviser dans le vide.</div>
+    </div>
+    <div class="card center">
+      <div class="sub">Ton taux de rétention ${enough ? '' : '(provisoire)'}</div>
+      <div style="font-size:52px;font-weight:900;color:${enough ? vcol : 'var(--muted)'};line-height:1.1">${s.retention != null ? s.retention + '%' : '—'}</div>
+      <div class="sub">sur ${s.nRev} révision(s) de cartes déjà apprises</div>
+      <div class="scoreline mt">
+        <div><div class="v" style="font-size:22px">${s.matRet != null ? s.matRet + '%' : '—'}</div><div class="k">rétention cartes ancrées</div></div>
+        <div><div class="v" style="font-size:22px">${s.againRate != null ? s.againRate + '%' : '—'}</div><div class="k">taux d'oubli (« Encore »)</div></div>
+        <div><div class="v" style="font-size:22px">${s.avgDay || '—'}</div><div class="k">révisions / jour actif</div></div>
+      </div>
+    </div>
+    <div class="card" style="background:linear-gradient(135deg,${vcol}18,var(--card));border-color:${vcol}">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:${vcol}">Verdict</div>
+      <div class="mt" style="font-size:14.5px;line-height:1.55">${verdict}</div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:8px">Répartition de tes réponses (révisions)</h3>
+      ${bar('Encore', s.dist[0], 'var(--bad)')}
+      ${bar('Difficile', s.dist[1], 'var(--accent)')}
+      ${bar('Correct', s.dist[2], 'var(--blue)')}
+      ${bar('Facile', s.dist[3], 'var(--good)')}
+      <div class="sub mt" style="font-size:12px">Idéalement, « Encore » reste autour de 10–15 %. Beaucoup plus = intervalles trop longs ; presque zéro = tu révises trop tôt.</div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:8px">Maturation du deck (${matur} cartes apprises)</h3>
+      ${bar('En cours', s.bLearn, 'var(--accent)')}
+      ${bar('Jeunes', s.bYoung, 'var(--blue)')}
+      ${bar('Ancrées', s.bMat, 'var(--good)')}
+      <div class="sub mt" style="font-size:12px">« Ancrées » = intervalle ≥ 21 jours : les mots qui sont vraiment passés en mémoire long terme.</div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:10px">Charge de révisions à venir (7 jours)</h3>
+      <div style="display:flex;gap:6px;align-items:flex-end">${foreBars}</div>
+      <div class="sub mt" style="font-size:12px">Grâce à la dispersion (fuzz) que je viens d'ajouter, ces piles devraient rester régulières plutôt que de former des pics.</div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:14px;margin-bottom:6px">🔧 Ce que j'ai amélioré dans l'algo</h3>
+      <div class="sub" style="font-size:13px;line-height:1.6">
+        · <b style="color:var(--txt)">Dispersion (fuzz ±6 %)</b> des intervalles → tes révisions ne s'entassent plus le même jour.<br>
+        · <b style="color:var(--txt)">Plafond d'intervalle</b> (1 an) → un mot « su » revient au moins une fois par an, il ne disparaît jamais.<br>
+        · <b style="color:var(--txt)">Journalisation</b> des révisions → c'est ce qui alimente ce diagnostic.
+      </div>
+    </div>
+  `;
+}
+
 /* ---------- ANKI : accueil session ---------- */
 function renderAnkiHome() {
   const due = dueCards().length;
@@ -1066,6 +1176,7 @@ function renderAnkiHome() {
       <h2 style="font-size:15px">Thèmes (${Object.keys(themes).length}) · touche pour réviser</h2>
       <div class="segwrap mt">${themeHtml}</div>
     </div>
+    <button class="btn sec" onclick="renderSrsDiag()">📊 Diagnostic — l'algo est-il efficace ?</button>
     <button class="btn ghost" onclick="transferLink()">📦 Transférer ma progression (lien à ouvrir ailleurs)</button>
     ${learnedCount() > 0 ? `<button class="btn ghost" onclick="resetCardsConfirm()">Réinitialiser la progression des cartes</button>` : ''}
   `;
