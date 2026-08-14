@@ -185,38 +185,74 @@ function buildThemeQueue(theme) {
   shuffle(due); shuffle(news);
   return due.concat(news);
 }
+/* ---------- FSRS (Free Spaced Repetition Scheduler v5, paramètres par défaut) ----------
+   Modèle Difficulté / Stabilité / Récupérabilité : au lieu d'un simple facteur SM-2,
+   on estime la stabilité de la mémoire de CHAQUE carte et on planifie la prochaine
+   révision pour une rétention cible (90 %). Plus efficace à long terme. */
+const FSRS_W = [0.40255,1.18385,3.173,15.69105,7.1949,0.5345,1.4604,0.0046,1.54575,0.1192,1.01925,1.9395,0.11,0.29605,2.2698,0.2315,2.9898,0.51655,0.6621];
+const FSRS_RR = 0.9;                                    // rétention cible
+const FSRS_DECAY = -0.5;
+const FSRS_FACTOR = Math.pow(0.9, 1 / FSRS_DECAY) - 1;  // ≈ 19/81
+function _clampD(d) { return Math.min(10, Math.max(1, d)); }
+function fsrsInitS(g) { return FSRS_W[g - 1]; }
+function fsrsInitD(g) { return _clampD(FSRS_W[4] - Math.exp(FSRS_W[5] * (g - 1)) + 1); }
+function fsrsRetr(t, S) { return Math.pow(1 + FSRS_FACTOR * t / S, FSRS_DECAY); }
+function fsrsNextD(D, g) {
+  const nd = D + (-FSRS_W[6] * (g - 3)) * (10 - D) / 9;           // amortissement linéaire
+  return _clampD(FSRS_W[7] * fsrsInitD(4) + (1 - FSRS_W[7]) * nd); // retour vers la moyenne
+}
+function fsrsSuccS(D, S, R, g) {
+  const hard = g === 2 ? FSRS_W[15] : 1, easy = g === 4 ? FSRS_W[16] : 1;
+  return S * (1 + Math.exp(FSRS_W[8]) * (11 - D) * Math.pow(S, -FSRS_W[9]) * (Math.exp((1 - R) * FSRS_W[10]) - 1) * hard * easy);
+}
+function fsrsFailS(D, S, R) {
+  return Math.min(S, FSRS_W[11] * Math.pow(D, -FSRS_W[12]) * (Math.pow(S + 1, FSRS_W[13]) - 1) * Math.exp((1 - R) * FSRS_W[14]));
+}
+function fsrsIntervalDays(S) { return (S / FSRS_FACTOR) * (Math.pow(FSRS_RR, 1 / FSRS_DECAY) - 1); } // = S quand RR=0.9
+// migre une carte SM-2 déjà apprise vers la mémoire FSRS (sans perte de progression)
+function fsrsMigrate(c) {
+  if (typeof c.fsrsS !== 'number' && c.introduced && c.interval >= 1) {
+    c.fsrsS = Math.max(1, c.interval);
+    c.fsrsD = _clampD(11.7 - 2.68 * (c.ease || 2.5));
+  }
+}
+// planifie sans muter : { D, S, interval(jours), due, learning }
+function fsrsSchedule(c, rating, now) {
+  const g = rating + 1;                         // 1=Again 2=Hard 3=Good 4=Easy
+  let D = c.fsrsD, S = c.fsrsS;
+  if (typeof S !== 'number') { D = fsrsInitD(g); S = fsrsInitS(g); }
+  else {
+    const t = c.last ? Math.max(0, (now - c.last) / DAY) : Math.max(1, c.interval || 1);
+    const R = fsrsRetr(t, S);
+    D = fsrsNextD(D, g);
+    S = g === 1 ? fsrsFailS(D, S, R) : fsrsSuccS(D, S, R, g);
+  }
+  if (g === 1) return { D, S, interval: 0, due: now + 60 * 1000, learning: true };
+  const iv = Math.min(MAX_INT, Math.max(1, Math.round(fsrsIntervalDays(S))));
+  return { D, S, interval: iv, due: now + iv * DAY, learning: false };
+}
+
 // rating: 0 again, 1 hard, 2 good, 3 easy
 function rateCard(i, rating) {
   const c = cardState(i);
-  // Pour le diagnostic : était-ce une VRAIE révision (carte mûre/jeune déjà due) ?
-  const wasReview = !!c.introduced && c.interval >= 1;
+  const wasReview = !!c.introduced && c.interval >= 1;   // vraie révision (pour le diagnostic)
   const wasMature = c.interval >= 21;
   const prevInt = c.interval;
+  fsrsMigrate(c);
   if (!c.introduced) { c.introduced = true; S.newToday += 1; }
   const now = Date.now();
-  if (rating === 0) {                       // Again
-    c.reps = 0; c.lapses += 1;
-    c.ease = Math.max(1.3, c.ease - 0.2);
-    c.interval = 0;
-    c.due = now + 60 * 1000;                // revient dans la session (~1 min)
+  const sc = fsrsSchedule(c, rating, now);
+  c.fsrsD = sc.D; c.fsrsS = sc.S; c.last = now;
+  if (sc.learning) {                              // Again → reprise dans la session
+    c.reps = 0; c.lapses += 1; c.interval = 0; c.due = sc.due;
   } else {
-    if (c.interval < 1) {                   // carte en apprentissage
-      c.interval = rating === 1 ? 1 : rating === 2 ? 1 : 4;
-    } else {
-      const mult = rating === 1 ? 1.2 : rating === 2 ? c.ease : c.ease * 1.3;
-      c.interval = Math.round(c.interval * mult);
-    }
-    if (rating === 1) c.ease = Math.max(1.3, c.ease - 0.15);
-    if (rating === 3) c.ease = c.ease + 0.15;
-    // Fuzz : ±6 % pour disperser les révisions (évite les paquets le même jour)
-    if (c.interval >= 3) { const f = 1 + (Math.random() * 0.12 - 0.06); c.interval = Math.max(2, Math.round(c.interval * f)); }
-    if (c.interval > MAX_INT) c.interval = MAX_INT;   // plafond
-    c.reps += 1;
-    c.due = now + Math.max(1, c.interval) * DAY;
+    let iv = sc.interval;
+    if (iv >= 3) { const f = 1 + (Math.random() * 0.12 - 0.06); iv = Math.min(MAX_INT, Math.max(2, Math.round(iv * f))); } // fuzz ±6 %
+    c.interval = iv; c.reps += 1; c.due = now + iv * DAY;
   }
+  if (typeof c.ease !== 'number') c.ease = 2.5;   // champ conservé (compat / affichage)
   S.cards[i] = c;
   S.reviewsDone += 1;
-  // journal des révisions (pour le diagnostic d'efficacité) — borné
   if (!S.revLog) S.revLog = [];
   S.revLog.push({ t: now, r: rating, v: wasReview ? 1 : 0, m: wasMature ? 1 : 0, pi: prevInt });
   if (S.revLog.length > 3000) S.revLog = S.revLog.slice(-3000);
@@ -224,12 +260,11 @@ function rateCard(i, rating) {
   save();
 }
 function nextDueLabel(i, rating) {          // aperçu sur les boutons
-  const c = cardState(i);
-  if (rating === 0) return '<1 j';
-  let iv;
-  if (c.interval < 1) iv = rating === 1 ? 1 : rating === 2 ? 1 : 4;
-  else { const m = rating === 1 ? 1.2 : rating === 2 ? c.ease : c.ease * 1.3; iv = Math.round(c.interval * m); }
-  iv = Math.max(1, iv);
+  if (rating === 0) return '< 1 j';
+  const c = Object.assign({}, cardState(i));   // clone : on ne mute pas l'état réel
+  fsrsMigrate(c);
+  const sc = fsrsSchedule(c, rating, Date.now());
+  let iv = sc.interval;
   return iv === 1 ? '1 j' : iv + ' j';
 }
 
@@ -1121,11 +1156,11 @@ function renderSrsDiag() {
       <div class="sub mt" style="font-size:12px">Grâce à la dispersion (fuzz) que je viens d'ajouter, ces piles devraient rester régulières plutôt que de former des pics.</div>
     </div>
     <div class="card">
-      <h3 style="font-size:14px;margin-bottom:6px">🔧 Ce que j'ai amélioré dans l'algo</h3>
+      <h3 style="font-size:14px;margin-bottom:6px">🔧 L'algorithme : passage à FSRS</h3>
       <div class="sub" style="font-size:13px;line-height:1.6">
-        · <b style="color:var(--txt)">Dispersion (fuzz ±6 %)</b> des intervalles → tes révisions ne s'entassent plus le même jour.<br>
-        · <b style="color:var(--txt)">Plafond d'intervalle</b> (1 an) → un mot « su » revient au moins une fois par an, il ne disparaît jamais.<br>
-        · <b style="color:var(--txt)">Journalisation</b> des révisions → c'est ce qui alimente ce diagnostic.
+        · <b style="color:var(--txt)">FSRS</b> (l'algo moderne d'Anki) remplace le vieux SM-2 : il estime la <i>stabilité</i> de ta mémoire pour chaque mot et planifie la révision pile pour une rétention de ${Math.round(FSRS_RR*100)} %. Plus efficace : moins de révisions pour une meilleure mémoire.<br>
+        · Ta progression a été <b style="color:var(--txt)">migrée sans perte</b> vers FSRS.<br>
+        · <b style="color:var(--txt)">Fuzz ±6 %</b> + <b style="color:var(--txt)">plafond 1 an</b> + journalisation (ce diagnostic).
       </div>
     </div>
   `;
@@ -1146,7 +1181,7 @@ function renderAnkiHome() {
   app.innerHTML = `
     <div class="card">
       <h2>Cartes de vocabulaire</h2>
-      <div class="sub">Répétition espacée SM‑2, sens tiré <b style="color:var(--txt)">au hasard</b> 🇪🇸→🇫🇷 ou 🇫🇷→🇪🇸 : tu dois savoir <i>produire</i> le mot, pas juste le reconnaître. Objectif : de A2 à C1, du quotidien au registre soutenu.</div>
+      <div class="sub">Répétition espacée <b style="color:var(--txt)">FSRS</b> (l'algorithme moderne d'Anki), sens tiré <b style="color:var(--txt)">au hasard</b> 🇪🇸→🇫🇷 ou 🇫🇷→🇪🇸 : tu dois savoir <i>produire</i> le mot, pas juste le reconnaître. Objectif : de A2 à C1, du quotidien au registre soutenu.</div>
       <div class="row2 mt">
         <div><div class="logo" style="font-size:24px;color:var(--blue)">${due}</div><div class="sub">à réviser</div></div>
         <div><div class="logo" style="font-size:24px;color:var(--accent)">${learnedCount()}<span style="font-size:15px;color:var(--muted)"> / ${VOCAB.length}</span></div><div class="sub">mots appris</div></div>
