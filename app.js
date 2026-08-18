@@ -685,7 +685,9 @@ const LESSON_TRANS = {
   estiloindirecto: [], pasivase: [], conectores: [],
   /* palier C1-C2 */
   seinvol: ['Nuances C2'], concesivas: ['Nuances C2'], relativo: ['Nuances C2'],
-  loneutro: ['Nuances C2'], causafin: ['Nuances C2'], correlacion: ['Nuances C2']
+  loneutro: ['Nuances C2'], causafin: ['Nuances C2'], correlacion: ['Nuances C2'],
+  /* palier C1->C2 (lot 4) */
+  pronominales: ['Matices C1'], probabilidad: ['Matices C1'], consecomp: ['Matices C1'], acentuacion: []
 };
 function doneLessons() { return LESSONS.filter(l => S.lessons[l.id] && S.lessons[l.id].done); }
 function buildMix(n) {
