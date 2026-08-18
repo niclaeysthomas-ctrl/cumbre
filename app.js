@@ -420,6 +420,7 @@ function render() {
   if (view === 'pron') return renderPronHome();
   if (view === 'hablar') return renderHablarHome();
   if (view === 'conj') return renderConjHome();
+  if (view === 'afondo') return renderAfondoHome();
   if (view === 'exam') return renderExamHome();
   if (view === 'traduire') return renderTransHome();
 }
@@ -626,6 +627,12 @@ function renderHome() {
       <div class="badge ${doneLessons===LESSONS.length?'':'zero'}">${doneLessons}/${LESSONS.length}</div>
     </button>
 
+    <button class="tile" onclick="setView('afondo')">
+      <div class="ic l">🚀</div>
+      <div class="body"><div class="t">A fondo · entraînement bonus</div><div class="d">Verbes qui changent · concordance des temps · repaso — quand tu as plus de temps</div></div>
+      <div class="badge zero">＋</div>
+    </button>
+
     <button class="tile" onclick="setView('listen')">
       <div class="ic l">🎧</div>
       <div class="body"><div class="t">Compréhension orale</div><div class="d">Part 2 · Part 3/4 (conversations & exposés)</div></div>
@@ -686,6 +693,10 @@ function buildMix(n) {
   const done = doneLessons();
   const mcq = [];
   done.forEach(l => l.q.forEach(q => mcq.push({
+    type: 'mcq', lessonTitle: l.title, stem: q[0], opts: q[1], correct: q[2], expl: q[3]
+  })));
+  // + exemples supplémentaires « A fondo » des leçons validées
+  done.forEach(l => ((typeof LESSON_EXTRA !== 'undefined' && LESSON_EXTRA[l.id]) || []).forEach(q => mcq.push({
     type: 'mcq', lessonTitle: l.title, stem: q[0], opts: q[1], correct: q[2], expl: q[3]
   })));
   const cats = new Set();
@@ -856,6 +867,11 @@ function renderGrammarList() {
       <div class="sub">Valide une leçon (≥ 70 %) pour débloquer la suivante. Chaque bonne réponse rapporte de l'XP.</div>
     </div>
     ${conjCard}
+    <div class="card" style="border-color:var(--purple)">
+      <h2 style="font-size:16px">🚀 A fondo · entraînement bonus</h2>
+      <div class="sub">Pour aller plus vite les jours où tu as du temps : <b style="color:var(--txt)">verbes qui changent</b> (diphtongue/affaiblissement), <b style="color:var(--txt)">concordance des temps</b>, et <b style="color:var(--txt)">repaso</b> d'une leçon avec de nouveaux exemples.</div>
+      <button class="btn sec mt" onclick="setView('afondo')">Ouvrir A fondo</button>
+    </div>
     ${dudasCard}
     ${tensesCard}
     ${mixCard}
@@ -2675,6 +2691,213 @@ function checkConj(k) {
   const el = document.getElementById('cj-' + k + '-0');
   if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   if (!wasDone) toast(score === 6 ? '✅ Parfait — 6/6 !' : score >= 4 ? `👍 ${score}/6 — regarde les formes en rouge` : `${score}/6 — revois ce temps, c'est comme ça qu'on apprend`);
+}
+
+/* ============================================================
+   A FONDO — entraînement BONUS (hors objectif du jour)
+   1) Verbos que cambian : diphtongue / affaiblissement (la forme)
+   2) Concordancia de tiempos : QCM (le fond)
+   3) Repaso a fondo : une leçon validée + ses exemples supplémentaires
+   ============================================================ */
+function afondoStats() {
+  const done = doneLessons();
+  let extra = 0; done.forEach(l => { extra += ((typeof LESSON_EXTRA !== 'undefined' && LESSON_EXTRA[l.id]) || []).length; });
+  return { done: done.length, extra };
+}
+function renderAfondoHome() {
+  window.scrollTo(0, 0);
+  const st = afondoStats();
+  app.innerHTML = `
+    <div class="card">
+      <h2>🚀 A fondo</h2>
+      <div class="sub">Entraînement <b style="color:var(--txt)">bonus</b>, hors objectif du jour : pour les jours où tu as plus de temps et où tu veux progresser plus vite. Ça rapporte de l'XP et valide « étudier ».</div>
+    </div>
+
+    <div class="card" style="border-color:var(--blue)">
+      <h2 style="font-size:16px">🔁 Verbos que cambian · la forme</h2>
+      <div class="sub">Conjuguer au <b style="color:var(--txt)">présent</b> les verbes à <b style="color:var(--txt)">diphtongue</b> (e→ie, o→ue) et à <b style="color:var(--txt)">affaiblissement</b> (e→i) — la règle de la « botte » : yo·tú·él·ellos changent, nosotros/vosotros non. Correction accents compris.</div>
+      <button class="btn mt" onclick="startStemDrill()">S'entraîner · 5 verbes</button>
+      <button class="btn sec mt" onclick="renderTense('presente')" style="font-size:13px;padding:9px">📖 Revoir la règle</button>
+    </div>
+
+    <div class="card" style="border-color:var(--purple)">
+      <h2 style="font-size:16px">🧩 Concordancia de tiempos · le fond</h2>
+      <div class="sub">Le point C1 : quel temps dans la subordonnée selon la principale (présent→subj. présent, passé→subj. imparfait), le <b style="color:var(--txt)">style indirect</b> et les phrases en <b style="color:var(--txt)">si</b>.</div>
+      <button class="btn mt" onclick="startConcord()">S'entraîner · ${(typeof CONCORD !== 'undefined' ? CONCORD.length : 0)} questions</button>
+      <button class="btn sec mt" onclick="renderTense('subjimp')" style="font-size:13px;padding:9px">📖 Revoir : subj. imparfait</button>
+    </div>
+
+    <div class="card" style="border-color:var(--accent)">
+      <h2 style="font-size:16px">📚 Repaso a fondo · plus d'exemples</h2>
+      <div class="sub">Reprends une leçon <b style="color:var(--txt)">déjà validée</b> avec ses exemples habituels <b style="color:var(--txt)">+ de nouveaux</b>, pour ancrer le réflexe.</div>
+      ${st.done
+        ? `<button class="btn mt" onclick="renderRepasoPick()">Choisir une leçon · ${st.done} dispo·s${st.extra ? ` · +${st.extra} nouveaux exemples` : ''}</button>`
+        : `<div class="sub mt" style="color:var(--dim)">🔒 Valide au moins une leçon d'abord.</div>`}
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:16px">🔀 Mix grammaire</h2>
+      <div class="sub">Le rebrassage mélangé de toutes tes leçons validées (questions + nouveaux exemples + traductions liées).</div>
+      ${st.done ? `<button class="btn sec mt" onclick="startMix()">Démarrer le mix</button>` : `<div class="sub mt" style="color:var(--dim)">🔒 Valide une leçon.</div>`}
+    </div>
+
+    <button class="btn ghost mt" onclick="setView('home')">Retour</button>
+  `;
+}
+
+/* ---- 1) Drill : verbes à changement de radical (présent) ---- */
+let AF_STEM = null;
+function startStemDrill() {
+  const idx = shuffle(STEMV.map((_, i) => i)).slice(0, 5);
+  AF_STEM = { batch: idx, ans: {}, done: {}, score: {} };
+  renderStemDrill();
+}
+function renderStemDrill() {
+  window.scrollTo(0, 0);
+  const cards = AF_STEM.batch.map((vi, k) => {
+    const v = STEMV[vi], ty = STEM_TYPES[v.type], done = AF_STEM.done[k];
+    const inputs = CONJ_PRON.map((pr, p) => {
+      const id = 'sm-' + k + '-' + p;
+      const val = escapeHtml((AF_STEM.ans[k] && AF_STEM.ans[k][p]) || '');
+      const boot = (p !== 3 && p !== 4); // nosotros(3)/vosotros(4) ne changent pas
+      let res = '';
+      if (done) {
+        const cls = conjFieldClass(AF_STEM.ans[k][p], v.pres[p]);
+        res = `<div class="cjres ${cls}">${cls === 'ok' ? '✓ ' + v.pres[p] : cls === 'accent' ? '≈ accent → <b>' + v.pres[p] + '</b>' : '✗ → <b>' + v.pres[p] + '</b>'}</div>`;
+      }
+      return `<div class="cjfield">
+        <label>${pr}${boot ? ' <span style="color:var(--accent)">•</span>' : ''}</label>
+        <input id="${id}" type="text" value="${val}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" lang="es" onfocus="conjFocus=this.id" placeholder="…">
+        ${res}</div>`;
+    }).join('');
+    return `
+      <div class="card cjcard ${done ? 'done' : ''}">
+        <div class="cjhead">
+          <div>
+            <div class="cjinf">${v.inf} <span class="cjfr">— ${v.fr}</span></div>
+            <div class="cjtag"><span class="pill warn">${ty.lab}</span> <b style="color:var(--blue)">présent · ${ty.kind}</b></div>
+          </div>
+          ${done ? `<div class="cjscore ${AF_STEM.score[k] === 6 ? 'perfect' : ''}">${AF_STEM.score[k]}/6</div>` : ''}
+        </div>
+        <div class="cjhint">La « botte » : <span style="color:var(--accent)">•</span> = radical qui change (yo·tú·él·ellos). <b>nosotros/vosotros</b> gardent le radical de l'infinitif.</div>
+        <div class="cjgrid">${inputs}</div>
+        <button class="btn ${done ? 'sec' : ''} mt" onclick="checkStem(${k})">${done ? 'Re-corriger' : 'Corriger'}</button>
+      </div>`;
+  }).join('');
+  const allDone = AF_STEM.batch.every((_, k) => AF_STEM.done[k]);
+  app.innerHTML = `
+    <div class="accbar" id="accbar">
+      ${['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü'].map(c => `<button onclick="conjInsert('${c}')">${c}</button>`).join('')}
+    </div>
+    <div class="card">
+      <h2>Verbos que cambian</h2>
+      <div class="sub">Conjugue chaque verbe au <b style="color:var(--txt)">présent</b> (les 6 personnes), puis « Corriger ». Le piège classique : mettre la diphtongue à <b style="color:var(--txt)">nosotros/vosotros</b> — ne le fais pas.</div>
+    </div>
+    ${cards}
+    ${allDone ? `<button class="btn mt" onclick="startStemDrill()">🔁 Autre série de 5</button>` : ''}
+    <button class="btn ghost mt" onclick="renderAfondoHome()">← A fondo</button>
+  `;
+}
+function checkStem(k) {
+  const v = STEMV[AF_STEM.batch[k]];
+  const ans = [];
+  for (let p = 0; p < 6; p++) { const el = document.getElementById('sm-' + k + '-' + p); ans[p] = el ? el.value : ''; }
+  AF_STEM.ans[k] = ans;
+  let score = 0;
+  for (let p = 0; p < 6; p++) if (normConj(ans[p]) === normConj(v.pres[p])) score++;
+  const wasDone = AF_STEM.done[k];
+  AF_STEM.score[k] = score; AF_STEM.done[k] = true;
+  if (!wasDone) { addXp(2 + score); markStudy(); touchDay(); save(); checkAchievements(); }
+  renderStemDrill();
+  const el = document.getElementById('sm-' + k + '-0');
+  if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  if (!wasDone) toast(score === 6 ? '✅ Parfait — 6/6 !' : `${score}/6 — regarde les formes en rouge`);
+}
+
+/* ---- 2 & 3) QCM bonus générique (concordancia + repaso) ---- */
+let BQ = null;
+function startBonusQuiz(o) {
+  const items = shuffle((o.items || []).slice());
+  if (!items.length) { toast('Rien à réviser ici 🙂'); return; }
+  BQ = { title: o.title, cat: o.cat || o.title, restart: o.restart || 'renderAfondoHome()', items, i: 0, correct: 0, answered: false };
+  renderBQ();
+}
+function renderBQ() {
+  window.scrollTo(0, 0);
+  const [stem, opts] = BQ.items[BQ.i];
+  BQ.answered = false;
+  const stemHtml = stem.replace('______', '<span class="blank">______</span>');
+  const optHtml = opts.map((o, k) => `<button class="opt" data-k="${k}" onclick="bqAnswer(${k})"><span class="lab">${'ABCD'[k]}</span>${o}</button>`).join('');
+  app.innerHTML = `
+    <div class="qmeta"><span>${BQ.title}</span><span>${BQ.i + 1} / ${BQ.items.length}</span></div>
+    <div class="pbar mb"><i style="width:${BQ.i / BQ.items.length * 100}%"></i></div>
+    <div class="stem">${stemHtml}</div>
+    <div id="opts">${optHtml}</div>
+    <div id="after"></div>
+  `;
+}
+function bqAnswer(k) {
+  if (BQ.answered) return;
+  BQ.answered = true;
+  const [stem, opts, correct, expl] = BQ.items[BQ.i];
+  document.querySelectorAll('#opts .opt').forEach((b, idx) => {
+    b.setAttribute('disabled', '');
+    if (idx === correct) b.classList.add('good');
+    else if (idx === k) b.classList.add('bad');
+    else b.classList.add('dim');
+  });
+  const ok = k === correct;
+  if (ok) { BQ.correct++; addXp(4); }
+  else recordMistake({ kind: 'gram', q: stem, opts, correct, expl, cat: BQ.cat });
+  const last = BQ.i === BQ.items.length - 1;
+  document.getElementById('after').innerHTML =
+    `<div class="expl ${ok ? 'ok' : 'no'}">${ok ? '✅ Correct. ' : '❌ Réponse : ' + 'ABCD'[correct] + '. '}${expl}</div>
+     <button class="btn mt" onclick="${last ? 'finishBQ()' : 'bqNext()'}">${last ? 'Voir le résultat' : 'Suivant'}</button>`;
+  document.getElementById('after').scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+function bqNext() { BQ.i++; renderBQ(); }
+function finishBQ() {
+  const total = BQ.items.length, pct = Math.round(BQ.correct / total * 100);
+  markStudy(); touchDay(); save(); checkAchievements();
+  app.innerHTML = `
+    <div class="card big">
+      <div class="em">${pct >= 80 ? '🎉' : pct >= 50 ? '💪' : '📚'}</div>
+      <div class="score" style="color:${pct >= 70 ? 'var(--good)' : 'var(--accent)'}">${pct}%</div>
+      <div class="lab">${BQ.correct} / ${total} bonnes réponses</div>
+      <div class="mt sub">Entraînement bonus validé.</div>
+    </div>
+    <button class="btn" onclick="${BQ.restart}">Refaire</button>
+    <button class="btn ghost mt" onclick="renderAfondoHome()">← A fondo</button>
+  `;
+}
+function startConcord() {
+  startBonusQuiz({ title: 'Concordancia de tiempos', cat: 'Concordancia de tiempos', items: (typeof CONCORD !== 'undefined' ? CONCORD : []), restart: 'startConcord()' });
+}
+function renderRepasoPick() {
+  window.scrollTo(0, 0);
+  const rows = doneLessons().map(l => {
+    const nx = ((typeof LESSON_EXTRA !== 'undefined' && LESSON_EXTRA[l.id]) || []).length;
+    return `
+      <div class="lrow done" onclick="startRepaso('${l.id}')">
+        <div class="n">✓</div>
+        <div class="info"><div class="tt">${l.title}</div><div class="tg">${l.tag} · ${l.q.length + nx} questions${nx ? ` (+${nx} nouveaux)` : ''}</div></div>
+        <div class="sc">›</div>
+      </div>`;
+  }).join('');
+  app.innerHTML = `
+    <div class="card">
+      <h2>Repaso a fondo</h2>
+      <div class="sub">Choisis une leçon validée. Tu la rejoues avec ses questions habituelles + de nouveaux exemples. Ça ne change pas ton score de leçon : c'est du bonus.</div>
+    </div>
+    ${rows || '<div class="sub">Valide d\'abord une leçon.</div>'}
+    <button class="btn ghost mt" onclick="renderAfondoHome()">← A fondo</button>
+  `;
+}
+function startRepaso(id) {
+  const l = LESSONS.find(x => x.id === id);
+  if (!l) return renderRepasoPick();
+  const extra = (typeof LESSON_EXTRA !== 'undefined' && LESSON_EXTRA[id]) || [];
+  startBonusQuiz({ title: l.title, cat: 'Grammaire · ' + l.title, items: l.q.concat(extra), restart: `startRepaso('${id}')` });
 }
 
 /* ---------- Boot ---------- */

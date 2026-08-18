@@ -6,6 +6,25 @@
    ============================================================ */
 window.TENSES = [
   {
+    id: 'presente', name: 'Presente + verbos que cambian', tag: 'A2-B1 · présent & radical',
+    when: "Le présent de tous les jours. Beaucoup de verbes très courants <b>changent de radical</b> (une voyelle qui diphtongue ou s'affaiblit) : c'est le point qui coince le plus à l'oral.",
+    formation: "Terminaisons régulières : <b>-o/-as/-a/-amos/-áis/-an</b> (-ar), <b>-o/-es/-e/-emos/-éis/-en</b> (-er), <b>-o/-es/-e/-imos/-ís/-en</b> (-ir). Le changement de radical suit la <b>règle de la « botte »</b> : il apparaît là où l'accent tonique tombe sur le radical — <b>yo, tú, él, ellos</b> — mais <b>PAS</b> à <b>nosotros/vosotros</b>.",
+    extra:
+      "<div class=\"th\">📋 La « botte » (pensar · volver · jugar · pedir)</div>" +
+      "<div class=\"cv\"><b>e → ie</b><span>p<b>ie</b>nso · p<b>ie</b>nsas · p<b>ie</b>nsa · pensamos · pensáis · p<b>ie</b>nsan</span></div>" +
+      "<div class=\"cv\"><b>o → ue</b><span>v<b>ue</b>lvo · v<b>ue</b>lves · v<b>ue</b>lve · volvemos · volvéis · v<b>ue</b>lven</span></div>" +
+      "<div class=\"cv\"><b>u → ue</b><span>j<b>ue</b>go · j<b>ue</b>gas · j<b>ue</b>ga · jugamos · jugáis · j<b>ue</b>gan</span></div>" +
+      "<div class=\"cv\"><b>e → i</b><span>p<b>i</b>do · p<b>i</b>des · p<b>i</b>de · pedimos · pedís · p<b>i</b>den</span></div>",
+    irregulars: "1<sup>re</sup> personne irrégulière en <b>-go</b> : tener → <b>tengo</b>, poner → <b>pongo</b>, salir → <b>salgo</b>, hacer → <b>hago</b>, decir → <b>digo</b> (+ e→i), venir → <b>vengo</b> (+ e→ie), oír → <b>oigo</b>. En <b>-zco</b> : conocer → <b>conozco</b>, conducir → <b>conduzco</b>. À part : ser (soy), estar (estoy), ir (voy), haber (he).<br><b>⚠️ Les verbes en -ir</b> qui changent laissent une trace ailleurs : au <b>passé simple</b> (3<sup>es</sup> personnes : p<b>i</b>dió/p<b>i</b>dieron, d<b>u</b>rmió/d<b>u</b>rmieron, s<b>i</b>ntió) et au <b>subjonctif</b> (y compris nosotros : pidamos, durmamos, sintamos).",
+    examples: [
+      ['Pienso que tienes razón.', 'Je pense que tu as raison.'],
+      ['¿A qué hora vuelves a casa?', 'À quelle heure reviens-tu à la maison ?'],
+      ['Los niños juegan en el patio.', 'Les enfants jouent dans la cour.'],
+      ['Siempre pido un café solo.', 'Je commande toujours un café noir.'],
+      ['No entendemos la pregunta.', 'Nous ne comprenons pas la question. (nosotros : aucun changement !)'],
+    ],
+  },
+  {
     id: 'subjpres', name: 'Presente de subjuntivo', tag: 'B1 · subjonctif présent',
     when: "Après un verbe de <b>volonté, souhait, émotion, doute</b> ou une tournure impersonnelle (<i>es necesario que…</i>), quand le sujet change. Aussi après <b>cuando, para que, aunque, ojalá</b> pour un fait non encore réalisé.",
     formation: "On part du radical de la 1<sup>re</sup> personne du présent (<b>yo</b>) sans le <b>-o</b>, puis terminaisons <b>inversées</b> : <b>-ar → e</b>, <b>-er/-ir → a</b>.",
