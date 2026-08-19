@@ -1,8 +1,8 @@
 /* CUMBRE — service worker : cache offline (app shell) */
-const CACHE = 'cumbre-v22';
+const CACHE = 'cumbre-v23';
 const ASSETS = [
   'index.html',
-  'app.js?v=21',
+  'app.js?v=22',
   'grammar-obligacion.js?v=1',
   'data-hablar.js?v=1',
   'hablar.js?v=1',
@@ -17,7 +17,7 @@ const ASSETS = [
   'translations2.js?v=1',
   'vocab-es7.js?v=1',
   'translations3.js?v=1',
-  'data-lecturas.js?v=1',
+  'data-lecturas.js?v=2',
   'data-shadowing.js?v=1',
   'data-dudas.js?v=1',
   'listening-long.js?v=2',
@@ -31,6 +31,7 @@ const ASSETS = [
   'data-pron.js?v=1',
   'verbs-conj.js?v=1',
   'data-bonus.js?v=1',
+  'data-reflex.js?v=1',
   'manifest.webmanifest',
   'icon-192.png',
   'icon-512.png'

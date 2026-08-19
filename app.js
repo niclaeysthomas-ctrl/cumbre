@@ -2706,6 +2706,65 @@ function afondoStats() {
   let extra = 0; done.forEach(l => { extra += ((typeof LESSON_EXTRA !== 'undefined' && LESSON_EXTRA[l.id]) || []).length; });
   return { done: done.length, extra };
 }
+/* ---------- DRILL AU RÉFLEXE : Ser/Estar & Por/Para (automatisation) ---------- */
+let RFX=null;
+const RFX_LABEL={serestar:'Ser / Estar', porpara:'Por / Para', mix:'Ser/Estar & Por/Para'};
+function reflexPool(mode){
+  const pool=[];
+  if(mode!=='porpara' && typeof SERESTAR_DRILL!=='undefined') SERESTAR_DRILL.forEach(it=>pool.push({stem:it[0],opts:[it[1],it[2]],correct:0,expl:it[3],cat:'Ser/Estar'}));
+  if(mode!=='serestar' && typeof PORPARA_DRILL!=='undefined') PORPARA_DRILL.forEach(it=>pool.push({stem:it[0],opts:['por','para'],correct:it[1]==='por'?0:1,expl:it[2],cat:'Por/Para'}));
+  return pool;
+}
+function startReflex(mode){
+  const pool=reflexPool(mode);
+  if(!pool.length){ toast('Rien à réviser ici 🙂'); return; }
+  RFX={mode,pool,bag:[],n:0,ok:0,streak:0,best:0,answered:false,live:true};
+  renderReflex();
+}
+function renderReflex(){
+  window.scrollTo(0,0);
+  if(!RFX.bag.length) RFX.bag=shuffle(RFX.pool.slice());
+  const it=RFX.cur=RFX.bag.pop(); RFX.answered=false;
+  let opts=it.opts, correct=it.correct;
+  if(it.cat==='Ser/Estar' && Math.random()<0.5){ opts=[it.opts[1],it.opts[0]]; correct=1; }
+  RFX.dispOpts=opts; RFX.dispCorrect=correct;
+  const stemHtml=it.stem.replace('______','<span class="blank">______</span>');
+  const acc=RFX.n?Math.round(100*RFX.ok/RFX.n):0;
+  app.innerHTML=`
+    <div class="qmeta"><span>${RFX_LABEL[RFX.mode]} · réflexe</span><span>🔥 ${RFX.streak}${RFX.best>RFX.streak?' · rec '+RFX.best:''}</span></div>
+    <div class="pbar mb"><i style="width:${acc}%"></i></div>
+    <div class="sub" style="margin-bottom:10px">${RFX.n?acc+'% · '+RFX.n+' faites — vite, au feeling':'Choisis vite : c\'est le réflexe qu\'on installe, pas la réflexion.'}</div>
+    <div class="stem">${stemHtml}</div>
+    <div class="row2" id="rfxopts">
+      ${opts.map((o,k)=>`<button class="opt" style="text-align:center;font-size:19px;font-weight:800;padding:16px" onclick="reflexAnswer(${k})">${o}</button>`).join('')}
+    </div>
+    <div id="rfxafter"></div>
+    <button class="btn ghost mt" onclick="finishReflex()">■ Stop &amp; bilan</button>
+  `;
+}
+function reflexAnswer(k){
+  if(!RFX||RFX.answered) return; RFX.answered=true;
+  const it=RFX.cur, correct=RFX.dispCorrect, ok=(k===correct);
+  document.querySelectorAll('#rfxopts .opt').forEach((b,idx)=>{ b.setAttribute('disabled',''); if(idx===correct)b.classList.add('good'); else if(idx===k)b.classList.add('bad'); else b.classList.add('dim'); });
+  RFX.n++;
+  if(ok){ RFX.ok++; RFX.streak++; if(RFX.streak>RFX.best)RFX.best=RFX.streak; }
+  else { RFX.streak=0; recordMistake({kind:'gram',q:it.stem,opts:it.opts,correct:it.correct,expl:it.expl,cat:'Réflexe · '+it.cat}); }
+  document.getElementById('rfxafter').innerHTML=`<div class="expl ${ok?'ok':'no'}" style="margin-top:10px">${ok?'✓ ':'✗ '+RFX.dispOpts[correct]+'. '}${it.expl}</div>`;
+  setTimeout(()=>{ if(RFX&&RFX.live&&RFX.answered) renderReflex(); }, ok?600:1900);
+}
+function finishReflex(){
+  if(!RFX) return; RFX.live=false;
+  const acc=RFX.n?Math.round(100*RFX.ok/RFX.n):0, xp=Math.min(80,RFX.ok*2);
+  markStudy(); if(xp) addXp(xp); save(); if(typeof checkAchievements==='function') checkAchievements();
+  const msg=RFX.n>=25?'Ça, c\'est du volume — le réflexe se construit exactement là.':RFX.n>=10?'Bien. C\'est la répétition qui rend le choix automatique : reviens-y.':'Court — enchaîne beaucoup, souvent : c\'est comme ça que ça devient naturel.';
+  app.innerHTML=`
+    <div class="card big"><div class="em">${acc>=85?'🎉':acc>=60?'💪':'📚'}</div>
+      <div class="score" style="color:${acc>=70?'var(--good)':'var(--accent)'}">${acc}%</div>
+      <div class="lab">${RFX.ok}/${RFX.n} · meilleure série ${RFX.best}</div>
+      <div class="mt sub">${msg} +${xp} XP</div></div>
+    <button class="btn" onclick="startReflex('${RFX.mode}')">↻ Encore</button>
+    <button class="btn ghost mt" onclick="renderAfondoHome()">← A fondo</button>`;
+}
 function renderAfondoHome() {
   window.scrollTo(0, 0);
   const st = afondoStats();
@@ -2713,6 +2772,16 @@ function renderAfondoHome() {
     <div class="card">
       <h2>🚀 A fondo</h2>
       <div class="sub">Entraînement <b style="color:var(--txt)">bonus</b>, hors objectif du jour : pour les jours où tu as plus de temps et où tu veux progresser plus vite. Ça rapporte de l'XP et valide « étudier ».</div>
+    </div>
+
+    <div class="card" style="border-color:var(--good)">
+      <h2 style="font-size:16px">⚡ Ser/Estar & Por/Para · au réflexe</h2>
+      <div class="sub">Le drill rapide pour que le bon choix devienne <b style="color:var(--txt)">automatique</b> : des dizaines de phrases, 2 boutons, correction immédiate, en boucle. Tous les cas — y compris les adjectifs qui changent de sens (<i>es listo</i> ≠ <i>está listo</i>).</div>
+      <button class="btn mt" onclick="startReflex('serestar')">Ser / Estar</button>
+      <div class="row2 mt">
+        <button class="btn sec" onclick="startReflex('porpara')">Por / Para</button>
+        <button class="btn sec" onclick="startReflex('mix')">Les deux</button>
+      </div>
     </div>
 
     <div class="card" style="border-color:var(--blue)">

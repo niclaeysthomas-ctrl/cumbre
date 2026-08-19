@@ -220,4 +220,67 @@ window.LECTURAS = [
     {q:"« Se tambalea » significa que el sistema…", opts:["se refuerza","vacille / chancelle","desaparece","mejora"], a:1, exp:"tambalearse = vaciller."}
   ]}
 
+,
+
+{ id:"el_habito", level:"C1", theme:"Desarrollo personal", title:"La fuerza del hábito",
+  intro:"Habitudes, discipline et constance — un texte d'idées, registre DELE C1.",
+  parrafos:[
+    "Solemos [atribuir] los grandes logros al talento o a la fuerza de voluntad. Sin embargo, quienes estudian la conducta coinciden en algo menos [halagador] pero más útil: buena parte de lo que hacemos cada día no lo decidimos, lo [repetimos]. Somos, en gran medida, la suma de nuestros hábitos.",
+    "Un hábito nace de un [bucle] sencillo: una señal lo dispara, sigue una rutina y, al final, una recompensa que el cerebro aprende a [anticipar]. Por eso cuesta tanto cambiarlo por pura voluntad: no basta con [proponérselo], hay que rediseñar el entorno para que la buena opción sea la más fácil.",
+    "La clave no está en la [hazaña] puntual, sino en la constancia discreta. Más vale un pequeño esfuerzo diario, casi [insignificante], que un arranque heroico [condenado] a apagarse en una semana. El progreso real es lento y, precisamente por serlo, [engaña]: no se nota de un día para otro, pero se acumula.",
+    "De ahí que convenga fijarse menos en los objetivos y más en los [sistemas]. Quien quiere escribir un libro no debería obsesionarse con la meta, sino con [sentarse] a escribir cada mañana. Los resultados llegan solos cuando el hábito está bien puesto; [a la larga], la disciplina no es sino libertad aplazada."
+  ],
+  glosario:{
+    "atribuir":"attribuer",
+    "halagador":"flatteur (halagar = flatter)",
+    "repetimos":"nous répétons (repetir)",
+    "bucle":"la boucle, le cycle",
+    "anticipar":"anticiper",
+    "proponérselo":"décider de le faire (proponerse algo)",
+    "hazaña":"l'exploit",
+    "insignificante":"insignifiant",
+    "condenado":"condamné, voué (à)",
+    "engaña":"trompe (engañar)",
+    "sistemas":"les systèmes (les routines, plutôt que les buts)",
+    "sentarse":"s'asseoir",
+    "a la larga":"à la longue, à terme"
+  },
+  claves:[["no basta con + inf.","il ne suffit pas de…"],["más vale … que …","mieux vaut … que …"],["de ahí que + subj.","d'où le fait que… (+ subjonctif)"],["fijarse menos en … y más en …","se concentrer moins sur… et plus sur…"],["no es sino …","ce n'est rien d'autre que…"]],
+  preguntas:[
+    {q:"La tesis central es que…", opts:["el talento explica los grandes logros","somos sobre todo la suma de nuestros hábitos","la fuerza de voluntad basta para cambiar","los objetivos son lo esencial"], a:1, exp:"« Somos, en gran medida, la suma de nuestros hábitos »."},
+    {q:"Para cambiar un hábito, el autor recomienda…", opts:["más fuerza de voluntad","rediseñar el entorno","fijar metas ambiciosas","un arranque heroico"], a:1, exp:"« hay que rediseñar el entorno para que la buena opción sea la más fácil »."},
+    {q:"« Un arranque heroico condenado a apagarse » se opone a…", opts:["la constancia discreta","la hazaña puntual","el talento","la recompensa"], a:0, exp:"Le texte oppose l'élan héroïque à la constance discrète et quotidienne."},
+    {q:"« La disciplina no es sino libertad aplazada » significa que la disciplina…", opts:["impide la libertad","es una forma de libertad diferida","no sirve de nada","es lo mismo que el talento"], a:1, exp:"« no es sino » = n'est rien d'autre que ; la discipline = liberté différée."}
+  ]},
+
+{ id:"emprendedor_mito", level:"C1", theme:"Economía & empresa", title:"El mito del emprendedor solitario",
+  intro:"Entrepreneuriat et travail d'équipe — un texte d'opinion, registre DELE C1.",
+  parrafos:[
+    "La cultura popular ha convertido al [emprendedor] en un héroe solitario: un genio [visionario] que, contra todos, transforma una idea en un imperio desde el garaje de su casa. Es una historia [seductora], pero en gran parte falsa.",
+    "Detrás de casi todo [éxito] empresarial hay un equipo, una red de apoyos y, muy a menudo, una buena dosis de [azar] y de oportunidad histórica. La idea, por brillante que sea, vale poco sin la [ejecución]; y ejecutar es, por definición, una tarea colectiva.",
+    "El mito del genio solitario no es [inofensivo]. Al concentrar todo el mérito en una figura, [invisibiliza] a quienes hacen posible el proyecto y desanima a quienes no se reconocen en ese [molde]. Además, alimenta una idea peligrosa: la de que pedir ayuda es una debilidad.",
+    "Convendría [rebajar] el tono épico y contar las cosas como son. Emprender no consiste en tener una [revelación], sino en resolver, un día tras otro y con otros, problemas concretos. El talento importa, sí, pero [rara vez] es lo que marca la diferencia; casi siempre lo hacen la constancia y la capacidad de rodearse bien."
+  ],
+  glosario:{
+    "emprendedor":"l'entrepreneur",
+    "visionario":"visionnaire",
+    "seductora":"séduisante",
+    "éxito":"le succès (faux ami : ≠ sortie)",
+    "azar":"le hasard",
+    "ejecución":"l'exécution, la mise en œuvre",
+    "inofensivo":"inoffensif",
+    "invisibiliza":"rend invisible (invisibilizar)",
+    "molde":"le moule",
+    "rebajar":"baisser, atténuer",
+    "revelación":"la révélation",
+    "rara vez":"rarement"
+  },
+  claves:[["por brillante que sea","aussi brillante soit-elle (por + adj + que + subj.)"],["muy a menudo","très souvent"],["no consiste en … sino en …","ne consiste pas à… mais à…"],["un día tras otro","jour après jour"],["rara vez … casi siempre","rarement… presque toujours"]],
+  preguntas:[
+    {q:"El autor sostiene que el emprendedor-héroe solitario es…", opts:["un modelo a seguir","un mito en gran parte falso","el único camino al éxito","un genio incomprendido"], a:1, exp:"« Es una historia seductora, pero en gran parte falsa »."},
+    {q:"¿Qué vale poco sin ejecución, según el texto?", opts:["el azar","el equipo","la idea","la oportunidad"], a:2, exp:"« La idea, por brillante que sea, vale poco sin la ejecución »."},
+    {q:"Un peligro del mito es que…", opts:["hace pedir demasiada ayuda","presenta pedir ayuda como una debilidad","da poco mérito al genio","exagera el papel del equipo"], a:1, exp:"« alimenta … la de que pedir ayuda es una debilidad »."},
+    {q:"« Por brillante que sea » significa…", opts:["parce qu'elle est brillante","aussi brillante soit-elle","si elle est brillante","pour qu'elle soit brillante"], a:1, exp:"« por + adj + que + subjonctif » = concession (aussi… que ce soit)."}
+  ]}
+
 ];
