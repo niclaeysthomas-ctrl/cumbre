@@ -9,218 +9,138 @@
    ============================================================ */
 window.LECTURAS = [
 
-{ id:"ia_trabajo", level:"C1", theme:"Tecnología & trabajo", title:"¿Nos quitará el trabajo la inteligencia artificial?",
-  intro:"L'IA et l'avenir du travail — un texte d'opinion, exactement le registre du DELE C1.",
+{ id:"teletrabajo", level:"C1", theme:"Trabajo & sociedad", title:"El teletrabajo: ¿libertad o trampa?",
+  intro:"Le télétravail, libération ou piège — un texte d'opinion nuancé, registre DELE C1.",
   parrafos:[
-    "Pocas cuestiones [suscitan] hoy tanto debate como el impacto de la inteligencia artificial en el empleo. Los más [agoreros] anuncian la desaparición de millones de puestos de trabajo; los optimistas, en cambio, sostienen que cada revolución tecnológica ha acabado generando más empleos de los que destruía.",
-    "Conviene no [caer en] ninguno de los dos extremos. Es cierto que muchas tareas repetitivas serán [automatizadas], desde la redacción de informes hasta el análisis de datos. Ahora bien, ello no equivale [necesariamente] a la desaparición del oficio en su conjunto: más bien, transforma su naturaleza.",
-    "El verdadero [reto] no es competir con la máquina en aquello que hace mejor que nosotros, sino [reforzar] lo que nos distingue: el criterio, la creatividad, la capacidad de [lidiar] con la ambigüedad. Quien sepa combinar el juicio humano con estas herramientas [saldrá ganando].",
-    "En [definitiva], no deberíamos preguntarnos si la inteligencia artificial nos [sustituirá], sino cómo aprender a trabajar con ella. Porque, [a fin de cuentas], no serán las máquinas quienes ocupen nuestro lugar, sino las personas que sepan usarlas."
+    "El [teletrabajo] se presentó como una pequeña revolución: adiós a los atascos, a las oficinas [impersonales] y a los horarios rígidos. Para muchos, poder trabajar desde casa ha supuesto una [conquista] largamente esperada. Sin embargo, unos años después, el [balance] resulta más ambiguo de lo que se esperaba.",
+    "Por un lado, la flexibilidad es real: uno organiza su jornada [a su antojo], ahorra tiempo de transporte y gana en [autonomía]. Por otro, la frontera entre la vida profesional y la personal se ha vuelto [porosa]. Cuando la casa es también la oficina, cuesta [desconectar]: el correo espera siempre a un clic de distancia.",
+    "A ello se suma un riesgo menos visible: el [aislamiento]. Las conversaciones de pasillo, las miradas, los pequeños gestos que [tejen] la vida de un equipo desaparecen. Se es más productivo, quizá, pero también más solo; y la creatividad, que suele nacer del encuentro casual, se [resiente].",
+    "En [definitiva], el teletrabajo no es ni la panacea ni la [amenaza] que unos y otros anuncian. Todo depende de cómo se [regule]: sin límites claros, la libertad prometida puede convertirse en una jaula cómoda. La cuestión no es si trabajar desde casa, sino [bajo qué condiciones] hacerlo sin perderse por el camino."
   ],
   glosario:{
-    "suscitan":"suscitent (suscitar = provoquer, susciter)",
-    "agoreros":"les oiseaux de mauvais augure, les pessimistes (agorero = prophète de malheur)",
-    "caer en":"tomber dans (un piège, un extrême)",
-    "automatizadas":"automatisées",
-    "necesariamente":"nécessairement",
-    "reto":"le défi (synonyme soutenu de « desafío »)",
-    "reforzar":"renforcer",
-    "lidiar":"composer avec, affronter (lidiar con la ambigüedad = gérer l'ambiguïté)",
-    "saldrá ganando":"sera gagnant (salir ganando = tirer son épingle du jeu)",
-    "definitiva":"« en definitiva » = en définitive, au final",
-    "sustituirá":"remplacera (sustituir a alguien = remplacer qqn)",
-    "a fin de cuentas":"en fin de compte, au bout du compte"
+    "teletrabajo":"le télétravail","impersonales":"impersonnelles","conquista":"une conquête, un acquis","balance":"le bilan",
+    "a su antojo":"à sa guise","autonomía":"l'autonomie","porosa":"poreuse (frontière floue)","desconectar":"déconnecter",
+    "aislamiento":"l'isolement","tejen":"tissent (tejer)","resiente":"en pâtit (resentirse)","definitiva":"« en definitiva » = en définitive",
+    "amenaza":"la menace","regule":"régule (regular, subjonctif)","bajo qué condiciones":"sous quelles conditions"
   },
-  claves:[["no caer en ninguno de los dos extremos","ne tomber dans aucun des deux extrêmes"],["ello no equivale a…","cela ne revient pas à…"],["más bien","plutôt, au contraire"],["quien sepa + subj., saldrá ganando","celui qui saura… sera gagnant"],["en definitiva / a fin de cuentas","en définitive / en fin de compte"]],
+  claves:[["resultar más … de lo que se esperaba","s'avérer plus … qu'on ne l'espérait"],["por un lado … por otro","d'un côté … de l'autre"],["a ello se suma …","à cela s'ajoute …"],["no … ni … ni …","ne … ni … ni …"],["la cuestión no es si … sino bajo qué condiciones","la question n'est pas si … mais sous quelles conditions"]],
   preguntas:[
-    {q:"La tesis del autor es que…", opts:["la IA destruirá millones de empleos","hay que aprender a trabajar con la IA, no competir contra ella","la IA no cambiará nada","los oficios desaparecerán por completo"], a:1, exp:"« no… si nos sustituirá, sino cómo aprender a trabajar con ella »."},
-    {q:"« Caer en ninguno de los dos extremos » invita a…", opts:["ser pesimista","ser optimista","adoptar una postura matizada","ignorar el debate"], a:2, exp:"Ni catastrophisme ni optimisme béat : une position nuancée."},
-    {q:"Según el texto, la IA sobre todo…", opts:["elimina los oficios","transforma la naturaleza de los oficios","no afecta al trabajo","crea solo empleos manuales"], a:1, exp:"« transforma su naturaleza »."},
-    {q:"« Saldrá ganando » significa…", opts:["perdra","s'en sortira gagnant","abandonnera","hésitera"], a:1, exp:"salir ganando = tirer son épingle du jeu."}
+    {q:"La postura del autor sobre el teletrabajo es…", opts:["claramente entusiasta","claramente crítica","matizada: ni panacea ni amenaza","indiferente"], a:2, exp:"« no es ni la panacea ni la amenaza »."},
+    {q:"¿Qué riesgo « menos visible » señala el texto?", opts:["la pérdida de productividad","el aislamiento","los atascos","el horario rígido"], a:1, exp:"« un riesgo menos visible: el aislamiento »."},
+    {q:"« La frontera … se ha vuelto porosa » significa que…", opts:["hay más separación entre trabajo y vida","se mezclan trabajo y vida personal","el trabajo desaparece","la casa es más cómoda"], a:1, exp:"Frontière poreuse = vie pro et perso se mélangent."},
+    {q:"Para el autor, la clave está en…", opts:["prohibir el teletrabajo","regularlo con límites claros","volver siempre a la oficina","eliminar los horarios"], a:1, exp:"« Todo depende de cómo se regule … una jaula cómoda »."}
   ]},
 
-{ id:"emprender", level:"C1", theme:"Emprendimiento", title:"El mito del emprendedor solitario",
-  intro:"Startups et entrepreneuriat — le récit du fondateur héroïque, décortiqué.",
+{ id:"dinero_felicidad", level:"C1", theme:"Economía & sociedad", title:"El dinero y la felicidad",
+  intro:"Argent et bonheur — un texte d'idées, registre DELE C1.",
   parrafos:[
-    "La cultura popular ha [forjado] la figura del emprendedor como un genio solitario que, [a base de] talento y sacrificio, construye un imperio [de la nada]. Es una historia [seductora], pero [engañosa].",
-    "Detrás de casi todo proyecto que [prospera] hay un equipo, una red de contactos y, [no pocas veces], una buena dosis de suerte y de capital ajeno. El emprendedor que triunfa rara vez lo hace [en solitario]: [se rodea] de personas más competentes que él en ámbitos concretos.",
-    "Idealizar el sacrificio individual tiene, además, un [efecto perverso]: hace [recaer] toda la responsabilidad del fracaso sobre el individuo, [pasando por alto] factores estructurales como el acceso a la financiación o el entorno económico.",
-    "Emprender no consiste en demostrar que uno puede [con todo], sino en saber [rodearse], delegar y reconocer los propios límites. [Lejos de] ser una debilidad, pedir ayuda [a tiempo] suele ser la decisión más [rentable]."
+    "« El dinero no da la felicidad », repite el [refrán]. Y, sin embargo, pocos [renunciarían] a tener más. Detrás de esta [aparente] contradicción se esconde una verdad más [matizada] de lo que sugiere el tópico.",
+    "Los estudios coinciden en un punto: el dinero sí influye en el bienestar, pero sobre todo cuando [escasea]. Salir de la [pobreza], poder pagar las facturas sin angustia, cambia la vida por completo. A partir de cierto [umbral], en cambio, cada euro adicional aporta cada vez menos felicidad.",
+    "El problema es que nos [acostumbramos] rápido a lo que tenemos. Un sueldo mayor o una casa más grande [ilusionan] al principio, pero pronto se convierten en la nueva [normalidad]. Es lo que los psicólogos llaman la « [rueda] hedónica »: corremos sin parar para quedarnos en el mismo sitio.",
+    "Quizá por eso quienes se declaran más felices no son los que más [acumulan], sino los que gastan en [experiencias] y en los demás. [Al fin y al cabo], un viaje o una comida compartida se recuerdan; un objeto más, rara vez. El dinero, bien empleado, no compra la felicidad, pero puede [comprar tiempo] — y eso ya es mucho."
   ],
   glosario:{
-    "forjado":"forgé (forjar una figura = façonner une image)",
-    "a base de":"à force de",
-    "de la nada":"à partir de rien",
-    "seductora":"séduisante",
-    "engañosa":"trompeuse (engañar = tromper)",
-    "prospera":"prospère (prosperar)",
-    "no pocas veces":"souvent (litt. « pas peu de fois »)",
-    "en solitario":"en solitaire, seul",
-    "se rodea":"s'entoure (rodearse de = s'entourer de)",
-    "efecto perverso":"effet pervers",
-    "recaer":"retomber (hacer recaer la responsabilidad = faire retomber la responsabilité)",
-    "pasando por alto":"en négligeant, en passant sous silence (pasar por alto)",
-    "con todo":"« poder con todo » = pouvoir tout gérer, tout assumer",
-    "rodearse":"s'entourer",
-    "Lejos de":"« lejos de » + inf. = loin de",
-    "a tiempo":"à temps",
-    "rentable":"rentable, payant"
+    "refrán":"le proverbe, le dicton","renunciarían":"renonceraient (renunciar a)","aparente":"apparente","matizada":"nuancée",
+    "escasea":"manque, se fait rare (escasear)","pobreza":"la pauvreté","umbral":"le seuil","acostumbramos":"nous habituons (acostumbrarse a)",
+    "ilusionan":"enthousiasment, font rêver (ilusionar)","normalidad":"la normalité","rueda":"la roue","acumulan":"accumulent",
+    "experiencias":"des expériences (vécues)","Al fin y al cabo":"en fin de compte, au bout du compte","comprar tiempo":"acheter du temps"
   },
-  claves:[["a base de talento y sacrificio","à force de talent et de sacrifice"],["de la nada","à partir de rien"],["no pocas veces","bien souvent"],["pasar por alto (algo)","négliger / passer sous silence"],["lejos de ser una debilidad","loin d'être une faiblesse"]],
+  claves:[["a partir de cierto umbral","à partir d'un certain seuil"],["cada vez menos","de moins en moins"],["es lo que los psicólogos llaman …","c'est ce que les psychologues appellent …"],["no … sino …","non pas … mais …"],["al fin y al cabo","en fin de compte"]],
   preguntas:[
-    {q:"El autor considera el mito del emprendedor solitario…", opts:["verdadero y ejemplar","seductor pero engañoso","irrelevante","imposible de refutar"], a:1, exp:"« Es una historia seductora, pero engañosa »."},
-    {q:"¿Qué « efecto perverso » señala?", opts:["que fomenta el trabajo en equipo","que culpa solo al individuo del fracaso","que aumenta la financiación","que reduce la suerte"], a:1, exp:"Hace recaer toda la responsabilidad sobre el individuo."},
-    {q:"Para el autor, pedir ayuda a tiempo es…", opts:["una debilidad","la decisión más rentable","un signo de fracaso","innecesario"], a:1, exp:"« lejos de ser una debilidad… la decisión más rentable »."},
-    {q:"« Pasar por alto » equivale a…", opts:["exagérer","négliger / ignorer","souligner","répéter"], a:1, exp:"pasar por alto = ne pas prendre en compte."}
+    {q:"El dinero influye en la felicidad sobre todo…", opts:["cuando ya se tiene mucho","cuando escasea","nunca","solo si se ahorra"], a:1, exp:"« el dinero sí influye … pero sobre todo cuando escasea »."},
+    {q:"La « rueda hedónica » describe que…", opts:["el dinero da felicidad duradera","nos acostumbramos rápido a lo que tenemos","la felicidad es imposible","gastar es siempre malo"], a:1, exp:"« corremos sin parar para quedarnos en el mismo sitio »."},
+    {q:"Los más felices, según el texto, gastan en…", opts:["objetos y coches","experiencias y en los demás","ahorro","casas grandes"], a:1, exp:"« gastan en experiencias y en los demás »."},
+    {q:"« A partir de cierto umbral » indica…", opts:["un punto a partir del cual algo cambia","el principio de todo","una cantidad fija","un tipo de felicidad"], a:0, exp:"umbral = seuil, à partir duquel l'effet change."}
   ]},
 
-{ id:"verde", level:"C2", theme:"Economía & medioambiente", title:"La transición ecológica: ¿coste o inversión?",
-  intro:"Économie verte — un texte C2 dense en connecteurs et en nuances.",
+{ id:"viajar", level:"C1", theme:"Cultura & sociedad", title:"¿Por qué viajamos?",
+  intro:"Pourquoi voyage-t-on — un texte réflexif, registre DELE C1.",
   parrafos:[
-    "Durante años se ha presentado la protección del medio ambiente y el crecimiento económico como objetivos [irreconciliables]. Según esta visión, [toda] medida ecológica [conllevaría] una pérdida de competitividad. Semejante planteamiento, sin embargo, empieza a [resquebrajarse].",
-    "Lejos de ser un mero [lastre], la transición ecológica se [perfila] como uno de los mayores yacimientos de empleo e innovación del siglo. Las energías renovables, la [rehabilitación] de edificios o la economía circular movilizan inversiones [ingentes] y generan puestos de trabajo difícilmente [deslocalizables].",
-    "Ello no significa que la transición [carezca] de costes ni de perdedores. [Negarlo] sería [caer en] un optimismo tan ingenuo como el catastrofismo que se pretende combatir. Habrá sectores que se resientan y territorios que requieran [acompañamiento].",
-    "La cuestión, [en el fondo], no es si podemos [permitirnos] la transición, sino si podemos permitirnos [prescindir de] ella. [A la luz de] los costes crecientes del cambio climático, la inacción resulta, [con diferencia], la opción más cara."
+    "Nunca [se ha viajado] tanto como hoy, y sin embargo rara vez nos preguntamos por qué lo hacemos. Damos [por sentado] que viajar es bueno, casi una [obligación] moral del que puede permitírselo. Pero ¿qué buscamos realmente cuando hacemos las maletas?",
+    "Para algunos, viajar es [huir]: dejar atrás la rutina, el trabajo, uno mismo. Para otros, es [coleccionar] lugares y fotos, como quien completa un álbum. Y para unos pocos, es una forma de [ponerse a prueba], de perderse para encontrarse. No hay un único viaje, sino [tantos como] viajeros.",
+    "Lo curioso es que a menudo el mejor recuerdo no es el [monumento] célebre, sino lo [imprevisto]: una conversación con un desconocido, un plato que no sabíamos [pronunciar], un tren perdido que nos llevó a otra parte. Viajar bien es, quizá, dejar [sitio] al azar.",
+    "Quienes critican el turismo [de masas] no dejan de tener razón: convertir cada rincón del mundo en un decorado [instagrameable] empobrece la experiencia. Pero el problema no es viajar, sino hacerlo [de prisa], sin mirar. Al final, no importa tanto adónde vamos como la manera en que lo hacemos."
   ],
   glosario:{
-    "irreconciliables":"inconciliables",
-    "toda":"« toda medida » = toute mesure (sens de « chaque »)",
-    "conllevaría":"impliquerait (conllevar = comporter, entraîner)",
-    "resquebrajarse":"se fissurer, se lézarder (une thèse qui se craquelle)",
-    "lastre":"un fardeau, un boulet (au fig.)",
-    "perfila":"« se perfila como » = s'annonce comme, se profile comme",
-    "rehabilitación":"la rénovation (de bâtiments)",
-    "ingentes":"colossales, énormes (registre soutenu)",
-    "deslocalizables":"délocalisables",
-    "carezca":"« carecer de » = manquer de, être dépourvu de (subj. : carezca)",
-    "Negarlo":"le nier (negar = nier)",
-    "caer en":"tomber dans",
-    "acompañamiento":"un accompagnement (mesures de soutien)",
-    "en el fondo":"au fond",
-    "permitirnos":"« permitirse algo » = se permettre qqch",
-    "prescindir de":"se passer de",
-    "A la luz de":"à la lumière de, au vu de",
-    "con diferencia":"de loin (la opción más cara con diferencia = de loin la plus chère)"
+    "se ha viajado":"on a (autant) voyagé (viajar, impersonnel)","por sentado":"« dar por sentado » = tenir pour acquis","obligación":"une obligation","huir":"fuir",
+    "coleccionar":"collectionner","ponerse a prueba":"se mettre à l'épreuve","tantos como":"autant (de…) que","monumento":"un monument",
+    "imprevisto":"l'imprévu","pronunciar":"prononcer","sitio":"la place, l'espace (dejar sitio = laisser de la place)","de masas":"de masse (turismo de masas)",
+    "instagrameable":"« instagrammable » (néologisme)","de prisa":"à la hâte, vite"
   },
-  claves:[["se ha presentado A y B como objetivos irreconciliables","on a présenté A et B comme inconciliables"],["lejos de ser un mero lastre","loin d'être un simple fardeau"],["ello no significa que + subj.","cela ne veut pas dire que…"],["no es si… sino si…","la question n'est pas si… mais si…"],["a la luz de","au vu de / à la lumière de"]],
+  claves:[["dar por sentado","tenir pour acquis"],["para algunos … para otros …","pour certains … pour d'autres …"],["no … sino tantos como …","non pas … mais autant que …"],["no dejar de tener razón","ne pas avoir tout à fait tort"],["no importa tanto … como …","ce n'est pas tant … qui compte que …"]],
   preguntas:[
-    {q:"La idea que « empieza a resquebrajarse » es que…", opts:["la ecología crea empleo","ecología y economía son incompatibles","la transición no tiene costes","el clima no cambia"], a:1, exp:"La vieille opposition écologie/économie se fissure."},
-    {q:"El autor reconoce que la transición…", opts:["no tiene ningún coste","sí tiene costes y perdedores","solo beneficia a las empresas","es imposible"], a:1, exp:"« no significa que carezca de costes ni de perdedores »."},
-    {q:"La conclusión del texto es que la inacción es…", opts:["la opción más barata","de loin la plus chère","neutra","recomendable"], a:1, exp:"« la inacción resulta, con diferencia, la opción más cara »."},
-    {q:"« Prescindir de » significa…", opts:["dépendre de","se passer de","profiter de","avoir besoin de"], a:1, exp:"prescindir de = se passer de, renoncer à."}
+    {q:"La pregunta central del texto es…", opts:["adónde viajar","por qué viajamos","cuánto cuesta viajar","cuándo viajar"], a:1, exp:"« ¿qué buscamos realmente cuando hacemos las maletas? »."},
+    {q:"El mejor recuerdo suele ser, según el autor…", opts:["el monumento célebre","lo imprevisto","la foto perfecta","el hotel"], a:1, exp:"« no es el monumento célebre, sino lo imprevisto »."},
+    {q:"El autor critica el turismo de masas porque…", opts:["es demasiado caro","convierte todo en un decorado y empobrece la experiencia","es peligroso","impide viajar"], a:1, exp:"« un decorado instagrameable empobrece la experiencia »."},
+    {q:"« No importa tanto adónde vamos como la manera » significa que lo esencial es…", opts:["el destino","cómo viajamos","el precio","la duración"], a:1, exp:"« no importa tanto X como Y » = c'est Y qui compte."}
   ]},
 
-{ id:"negociar", level:"C2", theme:"Negocios & negociación", title:"El arte de negociar: ceder no es perder",
-  intro:"Négociation et M&A — pile ton monde (LE CLOSING), en espagnol soutenu.",
+{ id:"fracaso", level:"C1", theme:"Desarrollo personal", title:"El elogio del fracaso",
+  intro:"Éloge de l'échec — un texte d'idées, registre DELE C1.",
   parrafos:[
-    "En el [imaginario] colectivo, negociar bien equivale a [imponerse]: arrancar al otro el máximo [cediendo] lo mínimo. Esta concepción, heredada del [regateo], resulta [contraproducente] en la mayoría de los acuerdos duraderos.",
-    "Los buenos negociadores saben que un trato solo [se sostiene] en el tiempo si ambas partes salen con la sensación de haber ganado algo. [De ahí que] no se centren en las posiciones —lo que cada uno exige— sino en los intereses [subyacentes]: el porqué de esas exigencias.",
-    "Ceder en lo accesorio para [preservar] lo esencial no es una muestra de debilidad, sino de [astucia]. Quien no distingue [lo uno de lo otro] acaba [enrocándose] en detalles y [dando al traste con] el acuerdo entero.",
-    "[En última instancia], toda negociación es una relación, no una batalla. El [adversario] de hoy puede ser el socio de mañana; humillarlo para ganar una cláusula es, [a menudo], la victoria más costosa que existe."
+    "Vivimos en una cultura [obsesionada] con el éxito. Las redes sociales [rebosan] de triunfos, de vidas perfectas, de metas alcanzadas. El [fracaso], en cambio, se esconde como algo [vergonzoso]. Y, sin embargo, no hay aprendizaje que no [pase por] él.",
+    "Nadie aprende a andar sin caerse [decenas] de veces. Nadie domina un idioma sin [equivocarse] a diario. El error no es lo contrario del progreso: es su [materia prima]. Quien no fracasa nunca es, sencillamente, quien no [se atreve] a intentar nada nuevo.",
+    "El problema no es el fracaso en sí, sino el [miedo] que le tenemos. Ese miedo [paraliza], nos hace quedarnos en lo seguro, renunciar antes de empezar. [Reconciliarse con] el error — verlo como información, no como [condena] — es quizá la habilidad más útil que existe.",
+    "Conviene, eso sí, no confundir las cosas: no se trata de fracasar por fracasar, sino de no dejar que el miedo [decida] por nosotros. Cada intento fallido [enseña] algo que ningún éxito habría enseñado. A fin de cuentas, solo fracasa de verdad quien deja de [intentarlo]."
   ],
   glosario:{
-    "imaginario":"l'imaginaire (el imaginario colectivo = l'imaginaire collectif)",
-    "imponerse":"s'imposer",
-    "cediendo":"en cédant (ceder)",
-    "regateo":"le marchandage (regatear = marchander)",
-    "contraproducente":"contre-productif",
-    "se sostiene":"tient, se maintient (sostenerse en el tiempo = tenir dans la durée)",
-    "De ahí que":"« de ahí que » + subj. = d'où le fait que, c'est pourquoi",
-    "subyacentes":"sous-jacents",
-    "preservar":"préserver",
-    "astucia":"la ruse, l'habileté",
-    "lo uno de lo otro":"l'un de l'autre",
-    "enrocándose":"en se braquant, en se cramponnant (enrocarse en algo)",
-    "dando al traste con":"en faisant échouer, en ruinant (dar al traste con algo)",
-    "En última instancia":"en dernière analyse, au bout du compte",
-    "adversario":"l'adversaire",
-    "a menudo":"souvent"
+    "obsesionada":"obsédée","rebosan":"débordent (rebosar de)","fracaso":"l'échec","vergonzoso":"honteux",
+    "pase por":"passe par (pasar por)","decenas":"des dizaines","equivocarse":"se tromper","materia prima":"la matière première",
+    "se atreve":"ose (atreverse a)","miedo":"la peur","paraliza":"paralyse","Reconciliarse con":"se réconcilier avec",
+    "condena":"une condamnation","decida":"décide (decidir, subjonctif)","enseña":"enseigne, apprend (enseñar)","intentarlo":"l'essayer, tenter (intentar)"
   },
-  claves:[["arrancar al otro el máximo","arracher le maximum à l'autre"],["de ahí que + subj.","d'où le fait que…"],["ceder en lo accesorio para preservar lo esencial","céder sur l'accessoire pour préserver l'essentiel"],["dar al traste con algo","faire échouer / ruiner qqch"],["en última instancia","en dernière analyse"]],
+  claves:[["no hay … que no pase por …","il n'y a pas … qui ne passe par …"],["no es lo contrario de … : es su …","n'est pas le contraire de … : c'en est la …"],["no se trata de … sino de …","il ne s'agit pas de … mais de …"],["no dejar que + subj.","ne pas laisser (que) …"],["a fin de cuentas","en fin de compte"]],
   preguntas:[
-    {q:"Para el autor, la concepción del regateo es…", opts:["ideal","contraproducente en acuerdos duraderos","la única válida","imprescindible"], a:1, exp:"« resulta contraproducente en la mayoría de los acuerdos duraderos »."},
-    {q:"Los buenos negociadores se centran en…", opts:["las posiciones","los intereses subyacentes","el máximo beneficio inmediato","las cláusulas"], a:1, exp:"« no… en las posiciones… sino en los intereses subyacentes »."},
-    {q:"Ceder en lo accesorio es, según el texto, una muestra de…", opts:["debilidad","astucia","miedo","desinterés"], a:1, exp:"« no es una muestra de debilidad, sino de astucia »."},
-    {q:"« Dar al traste con el acuerdo » significa…", opts:["conclure l'accord","faire échouer l'accord","améliorer l'accord","signer l'accord"], a:1, exp:"dar al traste con = faire capoter."}
+    {q:"La tesis del texto es que el fracaso…", opts:["debe evitarse a toda costa","es la materia prima del aprendizaje","es siempre vergonzoso","no existe"], a:1, exp:"« El error … es su materia prima »."},
+    {q:"El verdadero problema, según el autor, es…", opts:["el fracaso en sí","el miedo al fracaso","el éxito","la rutina"], a:1, exp:"« El problema no es el fracaso en sí, sino el miedo »."},
+    {q:"« Solo fracasa de verdad quien deja de intentarlo » quiere decir que…", opts:["hay que evitar intentar","el único fracaso real es rendirse","el éxito es imposible","intentar es inútil"], a:1, exp:"Le seul vrai échec = abandonner."},
+    {q:"« Reconciliarse con el error » consiste en…", opts:["verlo como una condena","verlo como información útil","ignorarlo","repetirlo a propósito"], a:1, exp:"« verlo como información, no como condena »."}
   ]},
 
-{ id:"atencion", level:"C2", theme:"Sociedad & tecnología", title:"La economía de la atención",
-  intro:"Notre attention est devenue une marchandise — un essai C2 sur le numérique.",
+{ id:"memoria", level:"C1", theme:"Ciencia & mente", title:"La memoria y el olvido",
+  intro:"Mémoire et oubli — un texte de vulgarisation, registre DELE C1.",
   parrafos:[
-    "Vivimos en una economía en la que el recurso más [disputado] ya no es el petróleo ni el oro, sino nuestra atención. Las plataformas digitales no nos venden un producto: nos [venden a nosotros mismos] como producto a los anunciantes.",
-    "Para lograrlo, [recurren a] mecanismos [ideados] para retenernos: el [desplazamiento] infinito, las notificaciones, la [recompensa] impredecible. Nada de ello es [casual]; responde a un diseño [minucioso] cuyo único fin es que permanezcamos [enganchados] el mayor tiempo posible.",
-    "El coste de esta captura no es solo el tiempo [malgastado], sino algo más [insidioso]: la [merma] de nuestra capacidad de concentración. Una mente [fragmentada] por mil interrupciones difícilmente puede [ahondar] en nada.",
-    "Recuperar la atención [pasa por] volver a decidir [deliberadamente] a qué la dedicamos. No se trata de [renunciar a] la tecnología, sino de dejar de ser su [rehén]. En un mundo diseñado para distraernos, concentrarse [se ha convertido en] un acto casi [subversivo]."
+    "Solemos pensar en la memoria como en un [almacén] donde se guardan, [intactos], nuestros recuerdos. La ciencia, sin embargo, [desmiente] esa imagen: recordar no es [recuperar] un archivo, sino [reconstruirlo] cada vez, con las piezas de que disponemos en ese momento.",
+    "Por eso la memoria es [falible]: cada vez que evocamos algo, lo modificamos un poco sin darnos cuenta. Dos personas que vivieron el mismo [suceso] lo recordarán de forma distinta, y ninguna [mentirá]. El recuerdo no es una foto; es más bien un relato que nos contamos a nosotros mismos.",
+    "Y luego está el [olvido], al que solemos ver como un [fallo]. Pero olvidar es tan necesario como recordar: sin él, quedaríamos [sepultados] bajo un [alud] de detalles inútiles. El cerebro [descarta] sin cesar para poder pensar. Olvidar es, en cierto modo, la manera que tiene la mente de [ordenar] el mundo.",
+    "Aprender bien, en el fondo, consiste en trabajar CON el olvido, no contra él: repasar justo antes de olvidar, [espaciar] las repeticiones, dejar que el cerebro se esfuerce por recuperar lo aprendido. Lo que cuesta recordar se graba mejor. La dificultad no es el enemigo del aprendizaje: [a menudo], es su mejor aliada."
   ],
   glosario:{
-    "disputado":"disputé, convoité (el recurso más disputado)",
-    "venden a nosotros mismos":"« nos venden a nosotros mismos » = ils nous vendent nous-mêmes",
-    "recurren a":"« recurrir a » = avoir recours à",
-    "ideados":"conçus (idear = concevoir, imaginer)",
-    "desplazamiento":"le défilement (le scroll)",
-    "recompensa":"la récompense",
-    "casual":"faux-ami : « fortuit, dû au hasard » (≠ décontracté)",
-    "minucioso":"minutieux",
-    "enganchados":"accros (engancharse a algo = devenir accro)",
-    "malgastado":"gaspillé (malgastar el tiempo)",
-    "insidioso":"insidieux",
-    "merma":"la diminution, l'affaiblissement (mermar = amoindrir)",
-    "fragmentada":"fragmentée",
-    "ahondar":"approfondir (ahondar en algo = creuser un sujet)",
-    "pasa por":"« pasar por » = passer par, impliquer",
-    "deliberadamente":"délibérément",
-    "renunciar a":"renoncer à",
-    "rehén":"l'otage (ser rehén de = être l'otage de)",
-    "se ha convertido en":"est devenu (convertirse en)",
-    "subversivo":"subversif"
+    "almacén":"un entrepôt (de stockage)","intactos":"intacts","desmiente":"dément (desmentir)","recuperar":"récupérer",
+    "reconstruirlo":"le reconstruire","falible":"faillible","suceso":"un événement, un fait","mentirá":"mentira (mentir, futur)",
+    "olvido":"l'oubli","fallo":"une défaillance, un raté","sepultados":"ensevelis","alud":"une avalanche",
+    "descarta":"écarte, élimine (descartar)","ordenar":"ranger, mettre de l'ordre","espaciar":"espacer","a menudo":"souvent"
   },
-  claves:[["el recurso más disputado","la ressource la plus convoitée"],["responde a un diseño minucioso","cela relève d'un design minutieux"],["no se trata de… sino de…","il ne s'agit pas de… mais de…"],["pasa por + inf.","cela passe par…"],["se ha convertido en un acto subversivo","est devenu un acte subversif"]],
+  claves:[["no es … sino …","n'est pas … mais …"],["tan … como …","aussi … que …"],["en cierto modo","d'une certaine manière"],["consistir en + inf.","consister à …"],["lo que cuesta recordar se graba mejor","ce qui coûte à retenir se grave mieux"]],
   preguntas:[
-    {q:"En este modelo, ¿qué es el « producto »?", opts:["el petróleo","los anunciantes","nosotros mismos","las notificaciones"], a:2, exp:"« nos venden a nosotros mismos como producto »."},
-    {q:"El mayor coste, según el autor, es…", opts:["el dinero","la merma de la concentración","la publicidad","el precio de los móviles"], a:1, exp:"« algo más insidioso: la merma de nuestra capacidad de concentración »."},
-    {q:"La solución que propone es…", opts:["renunciar a la tecnología","decidir deliberadamente a qué dedicamos la atención","comprar menos","apagar el móvil para siempre"], a:1, exp:"« No se trata de renunciar… sino de… decidir deliberadamente »."},
-    {q:"« Casual » en este texto significa…", opts:["décontracté","fortuit / dû au hasard","fréquent","élégant"], a:1, exp:"Faux-ami : casual = fortuit, pas « casual » anglais."}
+    {q:"Según la ciencia, recordar es…", opts:["recuperar un archivo intacto","reconstruir el recuerdo cada vez","imposible","hacer una foto mental"], a:1, exp:"« recordar no es recuperar un archivo, sino reconstruirlo cada vez »."},
+    {q:"El texto sostiene que el olvido…", opts:["es solo un fallo","es tan necesario como recordar","debe eliminarse","no existe"], a:1, exp:"« olvidar es tan necesario como recordar »."},
+    {q:"Aprender bien consiste en…", opts:["evitar el olvido","trabajar con el olvido (repasar, espaciar)","memorizar de golpe","no repasar nunca"], a:1, exp:"« trabajar CON el olvido … espaciar las repeticiones »."},
+    {q:"« Lo que cuesta recordar se graba mejor » implica que la dificultad…", opts:["impide aprender","suele ser aliada del aprendizaje","es siempre negativa","no importa"], a:1, exp:"« La dificultad … a menudo es su mejor aliada »."}
   ]},
 
-{ id:"envejecimiento", level:"C2", theme:"Economía & sociedad", title:"Una sociedad que envejece",
-  intro:"Le vieillissement démographique et ses enjeux économiques — vocabulaire d'analyse.",
+{ id:"lentitud", level:"C1", theme:"Sociedad & tiempo", title:"El elogio de la lentitud",
+  intro:"Éloge de la lenteur — un texte d'idées, registre DELE C1.",
   parrafos:[
-    "Europa envejece a [marchas forzadas]. La combinación de una [esperanza de vida] cada vez mayor y una [natalidad] en [caída libre] está [invirtiendo] la pirámide de población de forma [inédita].",
-    "Las consecuencias económicas son [de calado]. Cada vez menos trabajadores activos deben [sostener] las pensiones y los cuidados de una población mayor más [numerosa]. El sistema, [tal y como] está concebido, [se tambalea].",
-    "Frente a este [panorama], las recetas habituales —retrasar la edad de jubilación, fomentar la natalidad, abrir las puertas a la inmigración— resultan, cada una por separado, [insuficientes] y, [a menudo], políticamente [espinosas].",
-    "Quizá el error [de fondo] sea seguir viendo el envejecimiento únicamente como un problema. Una población longeva y sana es también una [oportunidad]: la de repensar el trabajo, la productividad y el propio [sentido] de la vejez. El [reto] no es solo económico, sino [civilizatorio]."
+    "Vivimos [acelerados]. Comemos rápido, leemos [en diagonal], contestamos mensajes mientras hacemos otra cosa. La [prisa] se ha convertido en un signo de [estatus]: quien está ocupado parece importante. Pero ¿y si tanta velocidad nos estuviera [robando] lo esencial?",
+    "El movimiento « slow », nacido en torno a la comida, [reivindica] otra cosa: hacer las cosas a su debido [ritmo]. No se trata de ir despacio por [pereza], sino de dar a cada tarea el tiempo que [merece]. Saborear una comida, escuchar de verdad a alguien, leer un libro sin [saltarse] páginas.",
+    "Porque la prisa tiene un coste [oculto]. Hace que confundamos actividad con [productividad], y cantidad con calidad. Corremos tanto que ya no [distinguimos] lo urgente de lo importante. Y, [paradójicamente], cuanto más aceleramos, menos tiempo parecemos tener.",
+    "[Frenar] no es perder el tiempo: a menudo es la única forma de [ganarlo]. Las mejores ideas rara vez llegan corriendo; llegan en el paseo, en la ducha, en el [aburrimiento]. Tal vez la [sabiduría] consista, hoy más que nunca, en [atreverse] a ir despacio en un mundo que no para."
   ],
   glosario:{
-    "marchas forzadas":"« a marchas forzadas » = à marche forcée, à toute vitesse",
-    "esperanza de vida":"l'espérance de vie",
-    "natalidad":"la natalité",
-    "caída libre":"« en caída libre » = en chute libre",
-    "invirtiendo":"en train d'inverser (invertir la pirámide = inverser la pyramide)",
-    "inédita":"inédite, sans précédent",
-    "de calado":"de taille, considérables (consecuencias de calado)",
-    "sostener":"soutenir, financer (sostener las pensiones)",
-    "numerosa":"nombreuse",
-    "tal y como":"tel(le) que (tal y como está concebido)",
-    "se tambalea":"vacille, chancelle (tambalearse)",
-    "panorama":"le tableau, la situation d'ensemble",
-    "insuficientes":"insuffisantes",
-    "a menudo":"souvent",
-    "espinosas":"épineuses, délicates",
-    "de fondo":"« el error de fondo » = l'erreur de fond",
-    "oportunidad":"une occasion, une opportunité",
-    "sentido":"le sens (el sentido de la vejez)",
-    "reto":"le défi",
-    "civilizatorio":"de civilisation (un enjeu de civilisation)"
+    "acelerados":"accélérés, pressés","en diagonal":"« leer en diagonal » = lire en survolant","prisa":"la hâte, la précipitation","estatus":"le statut",
+    "robando":"en train de voler (robar)","reivindica":"revendique (reivindicar)","ritmo":"le rythme","pereza":"la paresse",
+    "merece":"mérite (merecer)","saltarse":"sauter (saltarse páginas)","oculto":"caché","productividad":"la productivité",
+    "distinguimos":"nous distinguons","paradójicamente":"paradoxalement","Frenar":"freiner, ralentir","ganarlo":"le gagner (ganar el tiempo)",
+    "aburrimiento":"l'ennui","sabiduría":"la sagesse","atreverse":"oser"
   },
-  claves:[["a marchas forzadas","à marche forcée"],["en caída libre","en chute libre"],["consecuencias de calado","des conséquences de taille"],["tal y como está concebido","tel qu'il est conçu"],["el error de fondo","l'erreur de fond"]],
+  claves:[["¿y si + imparfait du subj. …?","et si … ?"],["no se trata de … sino de …","il ne s'agit pas de … mais de …"],["confundir X con Y","confondre X avec Y"],["cuanto más … menos …","plus … moins …"],["hoy más que nunca","aujourd'hui plus que jamais"]],
   preguntas:[
-    {q:"El envejecimiento se debe a la combinación de…", opts:["más nacimientos y menos vida","mayor esperanza de vida y menor natalidad","inmigración y jubilación","paro y pensiones"], a:1, exp:"« esperanza de vida cada vez mayor y una natalidad en caída libre »."},
-    {q:"Las recetas habituales son, según el autor…", opts:["suficientes por sí solas","insuficientes cada una por separado","innecesarias","fáciles políticamente"], a:1, exp:"« cada una por separado, insuficientes y… espinosas »."},
-    {q:"La propuesta final del texto es…", opts:["ver el envejecimiento solo como problema","verlo también como una oportunidad","ignorarlo","reducir la esperanza de vida"], a:1, exp:"« es también una oportunidad: la de repensar… »."},
-    {q:"« Se tambalea » significa que el sistema…", opts:["se refuerza","vacille / chancelle","desaparece","mejora"], a:1, exp:"tambalearse = vaciller."}
-  ]}
-
-,
+    {q:"La crítica central del texto apunta a…", opts:["la lentitud","la prisa como signo de estatus","solo la comida rápida","el trabajo"], a:1, exp:"« La prisa se ha convertido en un signo de estatus … ¿nos estuviera robando lo esencial? »."},
+    {q:"El movimiento « slow » propone…", opts:["ir despacio por pereza","dar a cada tarea el tiempo que merece","no trabajar","comer poco"], a:1, exp:"« dar a cada tarea el tiempo que merece »."},
+    {q:"« Cuanto más aceleramos, menos tiempo parecemos tener » se presenta como…", opts:["una paradoja","una mentira","una orden","un dato exacto"], a:0, exp:"Introduit par « paradójicamente »."},
+    {q:"Según el autor, las mejores ideas llegan…", opts:["corriendo","en el paseo, la ducha, el aburrimiento","en la oficina","nunca"], a:1, exp:"« llegan en el paseo, en la ducha, en el aburrimiento »."}
+  ]},
 
 { id:"el_habito", level:"C1", theme:"Desarrollo personal", title:"La fuerza del hábito",
   intro:"Habitudes, discipline et constance — un texte d'idées, registre DELE C1.",

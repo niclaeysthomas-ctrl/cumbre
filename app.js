@@ -308,7 +308,9 @@ function refreshHeader() {
 /* ============================================================
    LECTURA DEL DÍA — textes C1-C2 avec aides à la compréhension
    ============================================================ */
-function lecOfToday(){ const doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/864e5); return LECTURAS[doy%LECTURAS.length]; }
+function lecOfToday(){ const doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/864e5);
+  const nuevos=LECTURAS.filter(l=>!lecDone(l.id)); const pool=nuevos.length?nuevos:LECTURAS;  /* priorité aux textes non lus */
+  return pool[doy%pool.length]; }
 function lecDone(id){ return S.lecturas && S.lecturas[id]; }
 let LEC=null;
 function renderLecturaHome(){
