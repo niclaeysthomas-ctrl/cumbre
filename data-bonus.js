@@ -148,5 +148,138 @@ window.LESSON_EXTRA = {
     ["Si ______ mañana, no saldremos.", ["llueve", "lloviera", "llovería", "llovió"], 0, "Condition RÉELLE → Si + présent : llueve."],
     ["Si hubiera estudiado más, ______ el examen.", ["aprobaba", "aprobaría", "habría aprobado", "apruebo"], 2, "Irréel du passé → habría aprobado."],
     ["Habla como si lo ______ todo.", ["sabe", "supiera", "sabía", "sepa"], 1, "« como si » → subj. imparfait : supiera."]
+  ],
+
+  /* ===== Leçons AVANCÉES (B2 → C2) : mêmes 4 exemples chacune, ===== */
+  /* ===== alimentent automatiquement le Repaso ET le Mix grammaire. ===== */
+
+  // --- advanced-es.js (B2-C1) ---
+  perfindef: [
+    ["Nunca ______ nieve en mi ciudad.", ["vi", "he visto", "veía", "veré"], 1, "« nunca » (bilan jusqu'à présent, expérience de vie) → perfecto : he visto."],
+    ["Hace dos años ______ a España por primera vez.", ["he viajado", "viajé", "viajaba", "viajo"], 1, "« hace + durée » = moment précis et clos → indefinido : viajé."],
+    ["Anoche ______ pronto porque estaba agotado.", ["me he acostado", "me acosté", "me acostaba", "me acuesto"], 1, "« anoche » (période terminée) → indefinido : me acosté."],
+    ["Últimamente mi vida ______ mucho.", ["cambió", "ha cambiado", "cambiaba", "cambia"], 1, "« últimamente » (période reliée au présent) → perfecto : ha cambiado."]
+  ],
+  estiloindirecto: [
+    ["«Te ayudaré con eso». → Prometió que me ______ con eso.", ["ayuda", "ayudará", "ayudaría", "ayude"], 2, "futur → conditionnel : ayudaría."],
+    ["«Ya he comprado el regalo». → Comentó que ya ______ el regalo.", ["compró", "había comprado", "ha comprado", "compraba"], 1, "perfecto → plus-que-parfait : había comprado."],
+    ["«Ven a mi casa». → Me dijo que ______ a su casa.", ["voy", "vaya", "fuera", "iré"], 2, "impératif → subj. imparfait : fuera."],
+    ["«Lo haré mañana». → Aseguró que lo haría ______.", ["mañana", "al día siguiente", "ayer", "hoy"], 1, "déictique « mañana » → « al día siguiente »."]
+  ],
+  perifrasis: [
+    ["Después de discutir, ______ pidiéndose perdón.", ["acabaron", "siguieron", "llevan", "están a punto de"], 0, "« acabar + gérondif » = finir par : acabaron pidiéndose perdón."],
+    ["Poco a poco, la situación ______ mejorando.", ["va", "acaba de", "deja de", "vuelve a"], 0, "« ir + gérondif » = progression graduelle : va mejorando."],
+    ["En cuanto abrieron las puertas, la gente ______ a entrar.", ["empezó", "acabó", "dejó", "llevó"], 0, "« empezar a + inf » = commencer à : empezó a entrar."],
+    ["No le hagas caso, ______ diciendo tonterías todo el día.", ["anda", "lleva", "acaba de", "vuelve a"], 0, "« andar + gérondif » = passer son temps à (nuance répétée/agaçante) : anda diciendo tonterías."]
+  ],
+  pasivase: [
+    ["______ camareros con experiencia para el verano.", ["Se busca", "Se buscan", "Busca", "Se buscó"], 1, "Passif pronominal, sujet pluriel « camareros » → Se buscan."],
+    ["La novela ______ por un autor casi desconocido.", ["se escribió", "fue escrita", "escribió", "se escribe"], 1, "Passif périphrastique + « por » ; accord au féminin : fue escrita."],
+    ["En este pueblo ______ muy tranquilo.", ["se vive", "se viven", "vive", "se vivió"], 0, "« se » impersonnel (aucun sujet) → se vive."],
+    ["No ______ los resultados hasta el lunes.", ["se sabrá", "se sabrán", "sabrán", "se sabe"], 1, "Sujet pluriel « los resultados » → se sabrán."]
+  ],
+  subjcontraste: [
+    ["Necesito un ayudante que ______ inglés y alemán.", ["sabe", "sepa", "sabrá", "sabía"], 1, "Antécédent encore à trouver (indéfini) → subj. : sepa."],
+    ["Tengo un vecino que ______ el violín cada noche.", ["toca", "toque", "tocará", "tocara"], 0, "Antécédent réel et connu → indicatif : toca."],
+    ["Haremos la excursión cuando ______ mejor tiempo.", ["hace", "haga", "hará", "hacía"], 1, "« cuando » à valeur de futur → subj. : haga."],
+    ["Espera aquí hasta que yo ______.", ["vuelvo", "vuelva", "volveré", "volvía"], 1, "« hasta que » + action future → subj. : vuelva."]
+  ],
+
+  // --- advanced-es2.js (B2-C1) ---
+  cambio: [
+    ["Tras años de esfuerzo, ______ presidente de la compañía.", ["se puso", "llegó a ser", "se quedó", "se puso a"], 1, "Aboutissement d'un long parcours → llegar a ser : llegó a ser presidente."],
+    ["Al ver tanta sangre, ______ pálido y casi se desmaya.", ["se puso", "se hizo", "se volvió", "se quedó"], 0, "Réaction physique momentanée → ponerse : se puso pálido."],
+    ["Con tanta presión, poco a poco ______ loco.", ["se puso", "se hizo", "se volvió", "se quedó"], 2, "Changement mental durable et involontaire → volverse : se volvió loco."],
+    ["Date prisa, que ______ tarde y perderemos el tren.", ["se pone", "se hace", "se vuelve", "se queda"], 1, "« hacerse tarde » = se faire tard (expression figée) → se hace tarde."]
+  ],
+  serestaravz: [
+    ["Mi tío ______ muy rico: tiene tres casas y un yate.", ["es", "está"], 0, "rico = riche/fortuné (caractéristique) → ser. (estar rico = délicieux)"],
+    ["Ese comercial ______ muy interesado, solo piensa en el dinero.", ["es", "está"], 0, "interesado = intéressé/vénal (caractère) → ser. (estar interesado en = s'intéresser à)"],
+    ["Hoy no voy a trabajar porque ______ malo, tengo fiebre.", ["soy", "estoy"], 1, "estar malo = être malade → estoy. (ser malo = être méchant)"],
+    ["El recepcionista ______ muy atento con todos los clientes.", ["es", "está"], 0, "atento = prévenant/serviable (qualité) → ser. (estar atento a = être attentif à)"]
+  ],
+  regimen: [
+    ["No te preocupes ______ eso, todo saldrá bien.", ["por", "de", "en", "con"], 0, "preocuparse POR = se soucier de : por eso."],
+    ["Mi hermano se queja ______ todo constantemente.", ["de", "por", "en", "a"], 0, "quejarse DE = se plaindre de : de todo."],
+    ["¿Puedo confiar ______ ti para este secreto?", ["en", "de", "con", "a"], 0, "confiar EN = faire confiance à : en ti."],
+    ["Por fin se atrevió ______ decirle la verdad.", ["a", "de", "en", "con"], 0, "atreverse A + inf = oser : a decirle la verdad."]
+  ],
+  conectores: [
+    ["El proyecto tiene riesgos; ______, hemos decidido seguir adelante.", ["por eso", "no obstante", "ya que", "es decir"], 1, "Opposition, registre soutenu → no obstante."],
+    ["Faltaban datos; ______, la reunión se aplazó.", ["sin embargo", "por consiguiente", "aunque", "en cambio"], 1, "Conséquence, registre soutenu → por consiguiente."],
+    ["Llega el lunes, ______, dentro de tres días.", ["sin embargo", "es decir", "no obstante", "en cambio"], 1, "Reformulation / précision → es decir (c'est-à-dire)."],
+    ["Me encanta la montaña; ______, mi pareja prefiere la playa.", ["por lo tanto", "así que", "por otro lado", "ya que"], 2, "Introduire un autre aspect → por otro lado."]
+  ],
+
+  // --- advanced-es3.js (C1-C2) ---
+  seinvol: [
+    ["¡Cuidado, que ______ la comida! (sans le vouloir)", ["se te quema", "te quemas", "quemas", "se quema"], 0, "se + te + verbe accordé avec « la comida » : se te quema."],
+    ["Al camarero se le ______ los platos al suelo.", ["cayó", "cayeron", "caían", "cae"], 1, "Accord avec « los platos » (pluriel) → cayeron."],
+    ["Perdona, ______ decirte que llamó tu madre.", ["olvidé", "se me olvidó", "me olvidé", "se me olvidaron"], 1, "Oubli involontaire, une seule chose (+ infinitif) → se me olvidó."],
+    ["Fregando los vasos, ______ dos sin querer.", ["se me rompieron", "se me rompió", "rompí", "me rompí"], 0, "Accord avec « dos (vasos) » (pluriel) → se me rompieron."]
+  ],
+  concesivas: [
+    ["Por muy rico que ______, el dinero no da la felicidad.", ["es", "sea", "será", "fuera"], 1, "« por muy + adj + que » → subjonctif : sea."],
+    ["A pesar de ______ cada día, no consigue adelgazar.", ["entrenar", "que entrena", "entrenando", "de entrenar"], 0, "« a pesar de + infinitif » (même sujet) : a pesar de entrenar."],
+    ["Aunque me lo ______ de rodillas, no cambiaría de idea.", ["pide", "pida", "pidiera", "pedía"], 2, "Hypothèse irréelle → aunque + subj. imparfait ; principale au conditionnel : pidiera… cambiaría."],
+    ["Aprobó el examen, y eso que apenas ______.", ["estudia", "estudió", "estudiara", "estudie"], 1, "« y eso que » (concession familière) + fait réel passé → indicatif : estudió."]
+  ],
+  relativo: [
+    ["La casa ______ vivo ahora es muy luminosa.", ["que", "en la que", "cuya", "quien"], 1, "Après préposition (vivir EN) → « en la que »."],
+    ["Ese es el escritor ______ novelas he leído todas.", ["que", "cuyas", "cuyos", "de quien"], 1, "« cuyas » s'accorde avec « novelas » (chose possédée, fém. plur.)."],
+    ["Volvimos al pueblo ______ nacimos.", ["que", "donde", "cual", "cuyo"], 1, "Lieu → « donde » (= en el que) : el pueblo donde nacimos."],
+    ["Es un asunto delicado, sobre ______ se ha escrito mucho.", ["el que", "que", "cuyo", "lo cual"], 0, "Après préposition, antécédent « asunto » → « sobre el que » (ou « el cual », soutenu)."]
+  ],
+  loneutro: [
+    ["______ mejor de todo fue el final de la película.", ["El", "Lo", "La", "Los"], 1, "lo + adjectif (idée abstraite / superlatif neutre) : Lo mejor."],
+    ["No te imaginas ______ corre ese coche.", ["lo rápido que", "el rápido que", "qué rápido", "cuánto rápido"], 0, "Intensif : lo + adverbe + que → lo rápido que corre."],
+    ["______ tuyo no tiene una solución fácil.", ["Lo", "El", "La", "Ello"], 0, "« lo tuyo » = ton affaire, ton cas → Lo tuyo."],
+    ["Ayer hablé con el jefe de ______ del ascenso.", ["lo", "el", "ello", "la"], 0, "« lo de + nom » = l'affaire de : lo del ascenso."]
+  ],
+  causafin: [
+    ["______ no había entradas, nos quedamos en casa.", ["Como", "Porque", "Pues", "Así que"], 0, "Cause en tête de phrase → Como (« porque » ne peut pas ouvrir la phrase ici)."],
+    ["Cerró con llave a fin de que nadie ______ entrar.", ["puede", "pudiera", "podía", "podrá"], 1, "« a fin de que » + subj. ; principale au passé → imparfait : pudiera."],
+    ["Aprobó todos los exámenes, ______ sus padres lo felicitaron.", ["así que", "para que", "de ahí que", "como"], 0, "Conséquence réelle → así que."],
+    ["Se lo perdoné, ______ al fin y al cabo es mi hermano.", ["puesto que", "para que", "así que", "de ahí que"], 0, "Cause justificative, registre soutenu → puesto que."]
+  ],
+  correlacion: [
+    ["Dudo que Marta ______ la respuesta en este momento.", ["sabe", "sepa", "supiera", "sabrá"], 1, "Principale au présent, action simultanée → subj. présent : sepa."],
+    ["Dudaba que Marta ______ la respuesta.", ["sepa", "supiera", "haya sabido", "sabe"], 1, "Principale au passé → subj. imparfait : supiera."],
+    ["Me gustaría que me ______ toda la verdad.", ["dices", "digas", "dijeras", "dijiste"], 2, "« me gustaría » (conditionnel) → subj. imparfait : dijeras."],
+    ["Es una pena que no ______ venir a la boda el mes pasado.", ["puedas", "pudieras", "hayas podido", "podías"], 2, "Principale au présent + fait passé → passé du subj. : hayas podido."]
+  ],
+
+  // --- advanced-es4.js (C1-C2) ---
+  pronominales: [
+    ["Todos se marcharon; yo prefiero ______ un rato más.", ["quedar", "quedarme", "quedar en", "irme"], 1, "« quedarse » = rester sur place → quedarme. (quedar = convenir d'un RDV)"],
+    ["Se ______ el pan; habrá que comprar más.", ["acabó", "acabó de", "quedó", "terminó de"], 0, "« acabarse » = s'épuiser, être fini → se acabó el pan."],
+    ["Te ______ mucho a tu hermano, sois casi idénticos.", ["pareces", "parece", "ves", "encuentras"], 0, "« parecerse a » = ressembler à → te pareces a tu hermano."],
+    ["No me ______ a saltar desde tan alto, me da vértigo.", ["atrevo", "atrevía", "niego", "acuerdo"], 0, "« atreverse a » = oser → no me atrevo a saltar."]
+  ],
+  probabilidad: [
+    ["¿Dónde está Juan? ______ en el gimnasio, como cada tarde.", ["Está", "Estará", "Estaría", "Esté"], 1, "Conjecture au présent → futur : estará (« il doit être »)."],
+    ["Cuando la llamé anoche, ya ______ dormida y no contestó.", ["está", "estará", "estaría", "esté"], 2, "Conjecture dans le PASSÉ → conditionnel : estaría dormida."],
+    ["Tal vez ______ mejor esperar un poco antes de decidir.", ["es", "sea", "será", "fuera"], 1, "« tal vez » + subjonctif (doute) → sea mejor."],
+    ["Han llamado a la puerta; ______ ser el cartero.", ["debe de", "debe", "tiene", "hay que"], 0, "Probabilité → deber de : debe de ser (≠ « debe ser » = obligation)."]
+  ],
+  consecomp: [
+    ["Habla ______ rápido que casi no lo entiendo.", ["tan", "tanto", "tanta", "muy"], 0, "« tan + adverbe + que » : tan rápido que."],
+    ["Tiene ______ libros que no le caben en casa.", ["tantos", "tan", "tanto", "muchos"], 0, "« tantos + nom masc. plur. + que » (accord) : tantos libros que."],
+    ["El examen no era ______ difícil como esperaba.", ["tan", "tanto", "tanta", "más"], 0, "Comparaison d'égalité : « tan + adj + como » : tan difícil como."],
+    ["Con el calentamiento, los veranos son ______ calurosos.", ["cada vez más", "tanto más", "tan más", "muy más"], 0, "Progression : « cada vez más + adj » = de plus en plus : cada vez más calurosos."]
+  ],
+  acentuacion: [
+    ["______ casa es más grande que la mía.", ["Tu", "Tú"], 0, "« Tu » (possessif : ta/ton) sans tilde ≠ « tú » (pronom : toi)."],
+    ["A ______ me da igual lo que digan los demás.", ["mi", "mí"], 1, "« mí » (pronom, après préposition) porte la tilde ≠ « mi » (possessif)."],
+    ["¿______ vives ahora exactamente?", ["Donde", "Dónde"], 1, "Interrogatif → « dónde » avec tilde."],
+    ["La palabra « árbol » lleva tilde porque es llana y acaba en…", ["-l", "-n", "-s", "vocal"], 0, "Une llana prend la tilde si elle finit par une consonne AUTRE que -n ou -s : árbo**l**."]
+  ],
+
+  // --- grammar-obligacion.js (B1) ---
+  obligacion: [
+    ["Para mantenerse sano, ______ comer bien y hacer ejercicio.", ["hay que", "tengo que", "debo de", "necesito de"], 0, "Vérité générale, impersonnelle → hay que."],
+    ["Son casi las tres; Pedro ______ de estar a punto de llegar.", ["tiene", "debe", "hay", "necesita"], 1, "Supposition (« il doit être sur le point ») → deber de : debe de estar."],
+    ["No ______ que gritar, te oigo perfectamente.", ["hay", "tengo", "debo", "necesito"], 0, "« no hay que » = il ne faut pas / ce n'est pas la peine : no hay que gritar."],
+    ["A esta salsa le ______ falta un poco de sal.", ["hace", "hay", "tiene", "debe"], 0, "« hacer falta » = manquer, être nécessaire : le hace falta sal."]
   ]
 };
