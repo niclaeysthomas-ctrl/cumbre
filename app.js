@@ -35,6 +35,7 @@ const DEFAULT = {
   conjState: null,      // { date, done[3], score[3], ans[3][6] } — défi conjugaison du jour
   mistakes: {},         // erreurs à rejouer (clé -> {kind,q,opts,correct,expl,cat,audio,box})
   register: {},         // SRS-lite du module Espagnol soutenu
+  redaccion: {},        // expression écrite : id -> {text, done, ts}
   transDir: 'fr2en',    // sens de la traduction : fr2en ou en2fr
   badges: [],           // trophées débloqués (ids)
   longDone: 0,          // sessions d'écoute Part 3/4 terminées
@@ -436,6 +437,7 @@ function render() {
   if (view === 'lectura') return renderLecturaHome();
   if (view === 'pron') return renderPronHome();
   if (view === 'hablar') return renderHablarHome();
+  if (view === 'redaccion') return renderRedaccionHome();
   if (view === 'conj') return renderConjHome();
   if (view === 'afondo') return renderAfondoHome();
   if (view === 'exam') return renderExamHome();
@@ -466,7 +468,8 @@ const ACHIEVEMENTS = [
   { id: 'xp1000', ic: '⭐', title: 'Mille XP', desc: '1000 XP cumulés', test: () => S.xp >= 1000 },
   { id: 'pron7', ic: '👅', title: 'Lengua de trapo', desc: '7 sessions de prononciation', test: () => (S.pronDays || 0) >= 7 },
   { id: 'conj25', ic: '🔩', title: 'Conjugueur', desc: '25 verbes conjugués', test: () => (S.conjDone || 0) >= 25 },
-  { id: 'conj100', ic: '⚙️', title: 'Machine à conjuguer', desc: '100 verbes conjugués', test: () => (S.conjDone || 0) >= 100 }
+  { id: 'conj100', ic: '⚙️', title: 'Machine à conjuguer', desc: '100 verbes conjugués', test: () => (S.conjDone || 0) >= 100 },
+  { id: 'redac3', ic: '📝', title: 'Redactor', desc: '3 rédactions travaillées', test: () => redaccionDone() >= 3 }
 ];
 function earnedIds() { const s = []; ACHIEVEMENTS.forEach(a => { try { if (a.test()) s.push(a.id); } catch (e) {} }); return s; }
 function checkAchievements() {
@@ -637,6 +640,12 @@ function renderHome() {
       <div class="ic l">🗣️</div>
       <div class="body"><div class="t">Hablar — parler d'un sujet</div><div class="d">Monologue guidé (DELE) : plan, chrono, analyse & modèle</div></div>
       <div class="badge zero">${(typeof HABLAR!=='undefined')?HABLAR.length:0}</div>
+    </button>
+
+    <button class="tile" style="border-color:var(--good)" onclick="setView('redaccion')">
+      <div class="ic e">✍️</div>
+      <div class="body"><div class="t">Rédaction — expression écrite</div><div class="d">Essai d'opinion, mail formel… guión, connecteurs, modèle + correction par Claude</div></div>
+      <div class="badge zero">${(typeof REDACCION!=='undefined')?REDACCION.length:0}</div>
     </button>
 
     <button class="tile" onclick="setView('grammar')">
@@ -3000,6 +3009,118 @@ function startRepaso(id) {
   if (!l) return renderRepasoPick();
   const extra = (typeof LESSON_EXTRA !== 'undefined' && LESSON_EXTRA[id]) || [];
   startBonusQuiz({ title: l.title, cat: 'Grammaire · ' + l.title, items: l.q.concat(extra), restart: `startRepaso('${id}')` });
+}
+
+/* ============================================================
+   REDACCIÓN — expression écrite (DELE C1). Le vrai correcteur, c'est Claude.
+   ============================================================ */
+function copyText(text, msg) {
+  const ok = () => toast(msg || '📋 Copié');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, () => prompt('Copie le texte :', text));
+  else prompt('Copie le texte :', text);
+}
+function redaccionState(id) { S.redaccion = S.redaccion || {}; return S.redaccion[id] || { text: '', done: false, ts: 0 }; }
+function redaccionDone() { S.redaccion = S.redaccion || {}; let n = 0; for (const k in S.redaccion) if (S.redaccion[k] && S.redaccion[k].done) n++; return n; }
+function wordCount(t) { const w = (t || '').trim(); return w ? w.split(/\s+/).length : 0; }
+
+function renderRedaccionHome() {
+  window.scrollTo(0, 0);
+  if (typeof REDACCION === 'undefined') { app.innerHTML = '<div class="card">Module indisponible.</div>'; return; }
+  const rows = REDACCION.map(r => {
+    const st = redaccionState(r.id), wc = wordCount(st.text);
+    const badge = st.done ? '<div class="badge">✓</div>' : (wc > 0 ? `<div class="badge zero">${wc} m</div>` : '<div class="badge zero">›</div>');
+    return `
+      <button class="tile" onclick="renderRedaccion('${r.id}')">
+        <div class="ic e">✍️</div>
+        <div class="body"><div class="t">${r.titulo}</div><div class="d">${r.tipo} · ${r.palabras} mots · ${r.tiempo}</div></div>
+        ${badge}
+      </button>`;
+  }).join('');
+  app.innerHTML = `
+    <div class="card">
+      <h2>✍️ Rédaction — expression écrite</h2>
+      <div class="sub">Le chaînon qui fait passer au C1 : <b style="color:var(--txt)">produire</b>, pas seulement reconnaître. Choisis un sujet, écris avec les aides (plan, connecteurs), puis <b style="color:var(--txt)">copie ton texte et colle-le à Claude</b> pour une vraie correction. Un modèle C1 t'attend une fois que tu as écrit.</div>
+      <div class="sub mt" style="color:var(--muted)">${redaccionDone()} rédaction(s) travaillée(s)</div>
+    </div>
+    ${rows}
+    <button class="btn ghost mt" onclick="setView('home')">← Accueil</button>
+  `;
+}
+
+function renderRedaccion(id) {
+  window.scrollTo(0, 0);
+  const r = (typeof REDACCION !== 'undefined') && REDACCION.find(x => x.id === id);
+  if (!r) return renderRedaccionHome();
+  const st = redaccionState(id);
+  const esc = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const aid = (title, items) => `
+    <details class="aid"><summary>${title}</summary>
+      <ul class="aidul">${items.map(i => `<li>${i}</li>`).join('')}</ul>
+    </details>`;
+  const conBox = `
+    <details class="aid"><summary>🧩 Connecteurs utiles</summary>
+      <div class="conwrap">${r.conectores.map(c => `<span class="conchip">${c}</span>`).join('')}</div>
+    </details>`;
+  app.innerHTML = `
+    <div class="card">
+      <div class="sub" style="text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:800;color:var(--accent)">${r.tipo} · ${r.nivel}</div>
+      <h2 style="margin-top:4px">${r.titulo}</h2>
+      <div class="sub mt">${r.consigna}</div>
+      <div class="sub mt" style="color:var(--muted)">🎯 ${r.palabras} mots · ⏱ ${r.tiempo}</div>
+    </div>
+    ${aid('🧭 Guión (plan)', r.guion)}
+    ${conBox}
+    ${aid('💡 Recuerda', r.recuerda)}
+    <div class="card">
+      <h2 style="font-size:16px">Ton texte</h2>
+      <textarea id="redac-ta" class="redac" placeholder="Escribe aquí en español…" oninput="redacInput('${id}')">${esc(st.text)}</textarea>
+      <div class="sub mt" style="display:flex;justify-content:space-between">
+        <span id="redac-wc">${wordCount(st.text)} mots</span>
+        <span id="redac-save" style="color:var(--muted)"></span>
+      </div>
+      <button class="btn mt" onclick="redacExport('${id}')">📋 Copier pour correction (Claude)</button>
+      <div class="row2 mt">
+        <button class="btn sec" onclick="revealModelo('${id}')">👁 Modèle C1</button>
+        <button class="btn sec" onclick="toggleCheck('${id}')">✅ Auto-évaluation</button>
+      </div>
+      <div id="redac-check" style="display:none"></div>
+      <div id="redac-modelo" style="display:none"></div>
+    </div>
+    <button class="btn ghost mt" onclick="setView('redaccion')">← Tous les sujets</button>
+  `;
+}
+function redacInput(id) {
+  const ta = document.getElementById('redac-ta'); if (!ta) return;
+  S.redaccion = S.redaccion || {};
+  const prev = S.redaccion[id] || { done: false };
+  S.redaccion[id] = { text: ta.value, done: !!prev.done, ts: Date.now() };
+  save();
+  const wc = document.getElementById('redac-wc'); if (wc) wc.textContent = wordCount(ta.value) + ' mots';
+  const sv = document.getElementById('redac-save'); if (sv) sv.textContent = '✓ enregistré';
+}
+function toggleCheck(id) {
+  const r = REDACCION.find(x => x.id === id); if (!r) return;
+  const box = document.getElementById('redac-check'); if (!box) return;
+  if (!box.dataset.filled) { box.dataset.filled = '1'; box.innerHTML = `<div class="card mt"><h2 style="font-size:15px">Auto-évaluation</h2><ul class="aidul">${r.checklist.map(c => `<li>${c}</li>`).join('')}</ul></div>`; }
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+function revealModelo(id) {
+  const r = REDACCION.find(x => x.id === id); if (!r) return;
+  if (wordCount(redaccionState(id).text) < 30) { toast('Écris d\'abord — sinon tu te prives de l\'effort 😉'); return; }
+  const box = document.getElementById('redac-modelo'); if (!box) return;
+  if (!box.dataset.filled) { box.dataset.filled = '1'; box.innerHTML = `<div class="card mt" style="border-color:var(--good)"><h2 style="font-size:15px">Modèle C1 — à comparer, pas à copier</h2><div class="modelo">${r.modelo.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</div></div>`; }
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+function redacExport(id) {
+  const r = REDACCION.find(x => x.id === id); if (!r) return;
+  const st = redaccionState(id);
+  if (wordCount(st.text) < 20) { toast('Écris ton texte d\'abord ✍️'); return; }
+  const block = `Corrige mon texte en espagnol et monte-le au niveau C1 : dis-moi ce qui trahit un francophone, propose une version native, et note-moi selon les critères DELE (adéquation à la tâche, cohérence, richesse, correction).\n\nCONSIGNE : ${r.consigna}\nTYPE : ${r.tipo} · Objectif : ${r.palabras} mots\n\nMON TEXTE :\n«${st.text.trim()}»`;
+  copyText(block, '📋 Copié — colle-le à Claude pour ta correction');
+  const already = redaccionState(id).done;
+  S.redaccion[id] = { text: st.text, done: true, ts: Date.now() };
+  if (!already) addXp(20);
+  markStudy(); save(); checkAchievements();
 }
 
 /* ---------- Boot ---------- */

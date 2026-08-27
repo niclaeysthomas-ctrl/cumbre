@@ -316,6 +316,18 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 .cjfield input:focus{outline:none;border-color:var(--accent)}
 .cjres{grid-column:2;font-size:13px;font-weight:700;padding:2px 2px 0}
 .cjres.ok{color:var(--good)} .cjres.accent{color:var(--accent)} .cjres.bad{color:var(--bad)}
+/* Rédaction */
+textarea.redac{width:100%;box-sizing:border-box;min-height:220px;background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:15px;line-height:1.55;resize:vertical;margin-top:8px}
+textarea.redac:focus{outline:none;border-color:var(--accent)}
+details.aid{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px}
+details.aid summary{cursor:pointer;font-weight:800;color:var(--accent);font-size:14px;list-style:none}
+details.aid summary::-webkit-details-marker{display:none}
+details.aid[open] summary{margin-bottom:6px}
+.aidul{margin:6px 0 2px;padding-left:18px}
+.aidul li{margin:5px 0;font-size:14px;color:var(--txt);line-height:1.45}
+.conwrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.conchip{background:rgba(157,123,255,.14);color:var(--purple);border:1px solid rgba(157,123,255,.32);border-radius:999px;padding:4px 10px;font-size:13px;font-weight:600}
+.modelo{margin-top:8px;font-size:14.5px;line-height:1.6;color:var(--txt)}
 </style>
 </head>
 <body>
@@ -368,8 +380,9 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 <script src="verbs-conj.js?v=1"></script>
 <script src="data-hablar.js?v=1"></script>
 <script src="hablar.js?v=1"></script>
+<script src="data-redaccion.js?v=1"></script>
 <script src="data-bonus.js?v=3"></script>
 <script src="data-reflex.js?v=1"></script>
-<script src="app.js?v=24"></script>
+<script src="app.js?v=25"></script>
 </body>
 </html>
