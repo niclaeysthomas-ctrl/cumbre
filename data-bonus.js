@@ -82,7 +82,27 @@ window.CONCORD = [
   ["Ojalá ______ aprobado el examen la semana pasada.", ["haya", "hubiera", "había", "habría"], 1,
     "Regret sur le passé → pluscuamperfecto de subj. : hubiera aprobado."],
   ["No creía que ______ tan difícil.", ["es", "sea", "fuera", "será"], 2,
-    "Doute au passé (no creía) → subj. imparfait : fuera."]
+    "Doute au passé (no creía) → subj. imparfait : fuera."],
+  ["Cuando ______ a casa, ya había anochecido.", ["llego", "llegué", "llegara", "llegaba"], 1,
+    "« cuando » + fait passé ponctuel → indicatif (indefinido) : llegué."],
+  ["Te lo diré cuando ______ el momento.", ["llega", "llegue", "llegara", "llegará"], 1,
+    "« cuando » à valeur de futur → subj. présent : llegue (jamais le futur après cuando)."],
+  ["Buscaban a alguien que ______ varios idiomas.", ["habla", "hable", "hablara", "hablará"], 2,
+    "Antécédent indéfini + principale au passé → subj. imparfait : hablara."],
+  ["Es imprescindible que todos ______ a la reunión.", ["asisten", "asistan", "asistieran", "asistirán"], 1,
+    "Nécessité au présent (es imprescindible que) → subj. présent : asistan."],
+  ["Era imprescindible que todos ______ a la reunión.", ["asistan", "asistieran", "asisten", "asistirán"], 1,
+    "La même au passé (era) → subj. imparfait : asistieran."],
+  ["No pensé que ______ tan lejos.", ["está", "esté", "estuviera", "estará"], 2,
+    "Doute au passé (no pensé) → subj. imparfait : estuviera."],
+  ["Me alegra que ya ______ terminado el informe.", ["has", "hayas", "hubieras", "habías"], 1,
+    "Émotion au présent + antériorité → passé du subj. : hayas terminado."],
+  ["Ojalá no ______ dicho aquello ayer.", ["haya", "hubiera", "había", "habría"], 1,
+    "Regret sur le passé → pluscuamperfecto de subj. : hubiera dicho."],
+  ["Le pedí que me ______ en cuanto pudiera.", ["llama", "llame", "llamara", "llamará"], 2,
+    "Principale au passé (pedí) → subj. imparfait : llamara."],
+  ["Haré lo que haga falta con tal de que ______ contento.", ["estás", "estés", "estuvieras", "estarás"], 1,
+    "« con tal de que » + principale au présent → subj. présent : estés."]
 ];
 
 /* ---------- EXEMPLES SUPPLÉMENTAIRES PAR LEÇON ----------

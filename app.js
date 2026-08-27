@@ -4,7 +4,7 @@
 'use strict';
 
 const DAY = 86400000;
-const NEW_PER_DAY = 15;         // nouvelles cartes introduites par jour
+let NEW_PER_DAY = 15;           // nouvelles cartes introduites par jour (piloté par le régime)
 const MAX_INT = 365;            // plafond d'intervalle (jours) — un mot revu ~1×/an
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -41,11 +41,25 @@ const DEFAULT = {
   perfectDays: 0,       // jours où l'objectif du jour a été atteint
   slowAudio: false,     // vitesse d'écoute réduite
   voix: null,           // nom de la voix espagnole choisie (null = automatique)
+  regime: 'rapido',     // intensité quotidienne (cf REGIMES)
   firstRun: true
 };
 
 // Objectifs quotidiens
-const GOAL_CARDS = 20, GOAL_TRANS = 5, GOAL_CONJ = 3;
+let GOAL_CARDS = 20, GOAL_TRANS = 5; const GOAL_CONJ = 3;
+/* Régimes d'intensité : pilotent le VOLUME quotidien (cartes à réviser, phrases à
+   traduire, nouvelles cartes/jour). La conjugaison reste à 3 verbes (module à taille fixe). */
+const REGIMES = {
+  tranquilo: { emoji: '🌱', name: 'Tranquilo', cards: 15, trans: 5,  neu: 10, desc: "Jours chargés : l'essentiel, sans se noyer." },
+  rapido:    { emoji: '🔥', name: 'Rápido',    cards: 30, trans: 8,  neu: 22, desc: "Le bon rythme pour avancer vite et tenir dans la durée." },
+  intensivo: { emoji: '⚡', name: 'Intensivo', cards: 50, trans: 12, neu: 30, desc: "Gros volume quotidien. Le C1 sans traîner." },
+  atope:     { emoji: '🚀', name: 'A tope',    cards: 80, trans: 18, neu: 40, desc: "Sprint. Soutenable quelques semaines, pas toute l'année." }
+};
+const REGIME_ORDER = ['tranquilo', 'rapido', 'intensivo', 'atope'];
+const DEFAULT_REGIME = 'rapido';
+function currentRegime() { return REGIMES[S.regime] || REGIMES[DEFAULT_REGIME]; }
+function applyRegime() { const r = currentRegime(); GOAL_CARDS = r.cards; GOAL_TRANS = r.trans; NEW_PER_DAY = r.neu; }
+function setRegime(k) { if (!REGIMES[k]) return; S.regime = k; save(); applyRegime(); toast(REGIMES[k].emoji + ' Intensité : ' + REGIMES[k].name); render(); }
 function resetDailyIfNeeded() {
   if (!S.daily || S.daily.date !== todayStr()) S.daily = { date: todayStr(), cards: 0, trans: 0, study: 0, pron: 0, conj: 0 };
 }
@@ -87,6 +101,7 @@ function transferLink() {
   else prompt('Copie ce lien :', url);
 }
 let S = load();
+applyRegime();                 // aligne les quotas quotidiens sur le régime choisi
 function load() {
   try {
     const raw = JSON.parse(localStorage.getItem('tcumbre') || '{}');
@@ -555,6 +570,7 @@ function renderHome() {
         ${goalLine(dp.p >= 1, 'Prononciation (R · ñ)', dp.p ? 'fait' : '0/1')}
         ${goalLine(dp.t >= 1, 'Traduire des phrases', `${Math.min(S.daily.trans, GOAL_TRANS)}/${GOAL_TRANS}`)}
         ${goalLine(dp.s >= 1, 'Étudier (grammaire/écoute)', dp.s ? 'fait' : '0/1')}
+        <div class="sub mt" style="font-size:12px;color:var(--muted)">Intensité : <b style="color:var(--txt)">${currentRegime().emoji} ${currentRegime().name}</b> · <span style="color:var(--accent);cursor:pointer" onclick="setView('anki')">régler ›</span></div>
       </div>
     </div>`;
 
@@ -1193,12 +1209,25 @@ function renderAnkiHome() {
   const total = due + news;
   const remaining = totalUnlearned();              // toutes les cartes encore jamais vues
   const unlimitedTotal = due + remaining;
+  const rg = currentRegime();
+  const regChips = REGIME_ORDER.map(k => {
+    const r = REGIMES[k], on = (S.regime || DEFAULT_REGIME) === k;
+    return `<button class="segchip" style="${on ? 'border-color:var(--accent);color:var(--accent);font-weight:800' : ''}" onclick="setRegime('${k}')">${r.emoji} ${r.name}</button>`;
+  }).join('');
   // répartition par thème
   const themes = {};
   VOCAB.forEach(v => { themes[v[3]] = (themes[v[3]] || 0) + 1; });
   const themeHtml = Object.entries(themes).map(([t, n]) =>
     `<button class="segchip" onclick="startThemeReview('${t}')">${t} <span class="cnt">${n}</span></button>`).join('');
   app.innerHTML = `
+    <div class="card">
+      <h2 style="font-size:16px">⚙️ Intensité quotidienne</h2>
+      <div class="sub">Règle ton volume du jour. Monte-le quand tu veux tout donner, baisse-le les jours pris — c'est toi qui tiens le curseur.</div>
+      <div class="mt" style="display:flex;flex-wrap:wrap;gap:8px">${regChips}</div>
+      <div class="sub mt"><b style="color:var(--txt)">${rg.emoji} ${rg.name}</b> — ${rg.desc}</div>
+      <div class="sub mt" style="color:var(--muted)">≈ <b style="color:var(--txt)">${rg.cards}</b> cartes · <b style="color:var(--txt)">${rg.trans}</b> traductions · <b style="color:var(--txt)">${GOAL_CONJ}</b> verbes · jusqu'à <b style="color:var(--txt)">${rg.neu}</b> nouveaux mots/jour</div>
+      ${(S.regime === 'atope' || S.regime === 'intensivo') ? `<div class="pill warn mt">Gros volume : chaque nouveau mot revient en révision quelques jours plus tard. Tiens le rythme, ou redescends d'un cran sans culpabiliser.</div>` : ''}
+    </div>
     <div class="card">
       <h2>Cartes de vocabulaire</h2>
       <div class="sub">Répétition espacée <b style="color:var(--txt)">FSRS</b> (l'algorithme moderne d'Anki), sens tiré <b style="color:var(--txt)">au hasard</b> 🇪🇸→🇫🇷 ou 🇫🇷→🇪🇸 : tu dois savoir <i>produire</i> le mot, pas juste le reconnaître. Objectif : de A2 à C1, du quotidien au registre soutenu.</div>
