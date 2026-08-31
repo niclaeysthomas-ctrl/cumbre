@@ -88,6 +88,19 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 .opt.bad .lab{background:var(--bad);color:#2a0509}
 .opt.dim{opacity:.5}
 .opt[disabled]{cursor:default}
+/* Drill au réflexe : touches clavier — visibles seulement là où il y a un vrai clavier */
+.kbd{display:none}
+.rfxhint{display:none}
+@media (hover:hover) and (pointer:fine){
+  .kbd{position:absolute;top:7px;right:8px;display:inline-grid;place-items:center;min-width:21px;height:21px;padding:0 5px;
+    border-radius:6px;background:var(--bg2);border:1px solid var(--line);font-size:11px;font-weight:800;color:var(--muted);line-height:1}
+  .opt.good .kbd,.opt.bad .kbd,.opt.dim .kbd{opacity:.4}
+  .rfxhint{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--dim)}
+  .rfxhint b{color:var(--muted)}
+  .rfxhint button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;
+    padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer}
+  .rfxhint button:hover{border-color:var(--accent);color:var(--accent)}
+}
 /* lectura del día */
 .lectext p{font-size:16.5px;line-height:1.72;margin-bottom:15px;color:var(--txt)}
 .lectext p:last-child{margin-bottom:0}
@@ -383,6 +396,6 @@ details.aid[open] summary{margin-bottom:6px}
 <script src="data-redaccion.js?v=1"></script>
 <script src="data-bonus.js?v=3"></script>
 <script src="data-reflex.js?v=1"></script>
-<script src="app.js?v=25"></script>
+<script src="app.js?v=26"></script>
 </body>
 </html>

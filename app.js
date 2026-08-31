@@ -41,6 +41,7 @@ const DEFAULT = {
   longDone: 0,          // sessions d'écoute Part 3/4 terminées
   perfectDays: 0,       // jours où l'objectif du jour a été atteint
   slowAudio: false,     // vitesse d'écoute réduite
+  rfxSwap: false,       // drill réflexe : inverser les touches clavier (N / W)
   voix: null,           // nom de la voix espagnole choisie (null = automatique)
   regime: 'rapido',     // intensité quotidienne (cf REGIMES)
   firstRun: true
@@ -2761,13 +2762,28 @@ function startReflex(mode){
   RFX={mode,pool,bag:[],n:0,ok:0,streak:0,best:0,answered:false,live:true};
   renderReflex();
 }
-function renderReflex(){
+/* Touches clavier (ordinateur) : par defaut N = bouton de GAUCHE, W = bouton de DROITE.
+   rfxKeys() renvoie [touche gauche, touche droite]. */
+function rfxKeys(){ return S.rfxSwap ? ['w','n'] : ['n','w']; }
+function rfxSwapKeys(){
+  S.rfxSwap=!S.rfxSwap; save();
+  const k=rfxKeys();
+  toast(`\u2328\uFE0F ${k[0].toUpperCase()} = gauche \u00b7 ${k[1].toUpperCase()} = droite`);
+  if(RFX && RFX.live && !RFX.answered) renderReflex(true);   // ne consomme pas la question en cours
+}
+function renderReflex(keep){
   window.scrollTo(0,0);
-  if(!RFX.bag.length) RFX.bag=shuffle(RFX.pool.slice());
-  const it=RFX.cur=RFX.bag.pop(); RFX.answered=false;
-  let opts=it.opts, correct=it.correct;
-  if(it.cat==='Ser/Estar' && Math.random()<0.5){ opts=[it.opts[1],it.opts[0]]; correct=1; }
-  RFX.dispOpts=opts; RFX.dispCorrect=correct;
+  let it, opts, correct;
+  if(keep && RFX.cur){ it=RFX.cur; opts=RFX.dispOpts; correct=RFX.dispCorrect; }
+  else {
+    if(!RFX.bag.length) RFX.bag=shuffle(RFX.pool.slice());
+    it=RFX.cur=RFX.bag.pop();
+    opts=it.opts; correct=it.correct;
+    if(it.cat==='Ser/Estar' && Math.random()<0.5){ opts=[it.opts[1],it.opts[0]]; correct=1; }
+    RFX.dispOpts=opts; RFX.dispCorrect=correct;
+  }
+  RFX.answered=false;
+  const keys=rfxKeys();
   const stemHtml=it.stem.replace('______','<span class="blank">______</span>');
   const acc=RFX.n?Math.round(100*RFX.ok/RFX.n):0;
   app.innerHTML=`
@@ -2776,8 +2792,9 @@ function renderReflex(){
     <div class="sub" style="margin-bottom:10px">${RFX.n?acc+'% · '+RFX.n+' faites — vite, au feeling':'Choisis vite : c\'est le réflexe qu\'on installe, pas la réflexion.'}</div>
     <div class="stem">${stemHtml}</div>
     <div class="row2" id="rfxopts">
-      ${opts.map((o,k)=>`<button class="opt" style="text-align:center;font-size:19px;font-weight:800;padding:16px" onclick="reflexAnswer(${k})">${o}</button>`).join('')}
+      ${opts.map((o,k)=>`<button class="opt" style="text-align:center;font-size:19px;font-weight:800;padding:16px" onclick="reflexAnswer(${k})">${o}<span class="kbd">${keys[k].toUpperCase()}</span></button>`).join('')}
     </div>
+    <div class="rfxhint">\u2328\uFE0F <b>${keys[0].toUpperCase()}</b> = gauche \u00b7 <b>${keys[1].toUpperCase()}</b> = droite <span style="opacity:.65">(ou \u2190 \u2192)</span><button onclick="rfxSwapKeys()">\u21c4 inverser</button></div>
     <div id="rfxafter"></div>
     <button class="btn ghost mt" onclick="finishReflex()">■ Stop &amp; bilan</button>
   `;
@@ -2805,6 +2822,20 @@ function finishReflex(){
     <button class="btn" onclick="startReflex('${RFX.mode}')">↻ Encore</button>
     <button class="btn ghost mt" onclick="renderAfondoHome()">← A fondo</button>`;
 }
+/* Clavier : repondre sans la souris (c'est un drill de VITESSE).
+   Gauche/droite = les deux touches de rfxKeys(), plus les fleches. Inactif hors du drill. */
+document.addEventListener('keydown', e => {
+  if(!RFX || !RFX.live || RFX.answered || e.repeat) return;
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+  const t=e.target;
+  if(t && (t.tagName==='INPUT' || t.tagName==='TEXTAREA' || t.isContentEditable)) return;
+  if(!document.getElementById('rfxopts')) return;
+  const keys=rfxKeys(), k=(e.key||'').toLowerCase();
+  const idx = (k===keys[0]||k==='arrowleft') ? 0 : (k===keys[1]||k==='arrowright') ? 1 : -1;
+  if(idx<0) return;
+  e.preventDefault();
+  reflexAnswer(idx);
+});
 function renderAfondoHome() {
   window.scrollTo(0, 0);
   const st = afondoStats();
@@ -2816,7 +2847,7 @@ function renderAfondoHome() {
 
     <div class="card" style="border-color:var(--good)">
       <h2 style="font-size:16px">⚡ Ser/Estar & Por/Para · au réflexe</h2>
-      <div class="sub">Le drill rapide pour que le bon choix devienne <b style="color:var(--txt)">automatique</b> : des dizaines de phrases, 2 boutons, correction immédiate, en boucle. Tous les cas — y compris les adjectifs qui changent de sens (<i>es listo</i> ≠ <i>está listo</i>).</div>
+      <div class="sub">Le drill rapide pour que le bon choix devienne <b style="color:var(--txt)">automatique</b> : des dizaines de phrases, 2 boutons (ou les touches <b style="color:var(--txt)">N</b> / <b style="color:var(--txt)">W</b> au clavier), correction immédiate, en boucle. Tous les cas — y compris les adjectifs qui changent de sens (<i>es listo</i> ≠ <i>está listo</i>).</div>
       <button class="btn mt" onclick="startReflex('serestar')">Ser / Estar</button>
       <div class="row2 mt">
         <button class="btn sec" onclick="startReflex('porpara')">Por / Para</button>
