@@ -44,6 +44,7 @@ const DEFAULT = {
   rfxSwap: false,       // drill réflexe : inverser les touches clavier (N / W)
   voix: null,           // nom de la voix espagnole choisie (null = automatique)
   regime: 'rapido',     // intensité quotidienne (cf REGIMES)
+  dele: null,           // DELE C1 Prueba 1 : {hist:[], use:{lectura,recon,huecos,gram}}
   firstRun: true
 };
 
@@ -311,6 +312,7 @@ const app = document.getElementById('app');
 let view = 'home';
 
 function setView(v) {
+  if (typeof deleGuard === 'function' && !deleGuard(v)) return;
   view = v;
   document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   render();
@@ -442,6 +444,7 @@ function render() {
   if (view === 'conj') return renderConjHome();
   if (view === 'afondo') return renderAfondoHome();
   if (view === 'exam') return renderExamHome();
+  if (view === 'dele') return renderDeleHome();
   if (view === 'traduire') return renderTransHome();
 }
 
@@ -466,6 +469,8 @@ const ACHIEVEMENTS = [
   { id: 'exam600', ic: '📈', title: 'Cap B1', desc: 'Niveau estimé B1', test: () => (S.estScore || 0) >= 55 },
   { id: 'exam785', ic: '🎓', title: 'Cap B2', desc: 'Niveau estimé B2', test: () => (S.estScore || 0) >= 72 },
   { id: 'exam900', ic: '🏆', title: 'Cumbre C1', desc: 'Niveau estimé C1', test: () => (S.estScore || 0) >= 88 },
+  { id: 'deleapto', ic: '🇪🇸', title: 'Prueba 1 · apto', desc: '60 % au DELE C1', test: () => ((S.dele && S.dele.hist) || []).some(r => r.pct >= 60) },
+  { id: 'dele90', ic: '🥇', title: 'Prueba 1 · 90 %', desc: '36/40 au DELE C1', test: () => ((S.dele && S.dele.hist) || []).some(r => r.pct >= 90) },
   { id: 'xp1000', ic: '⭐', title: 'Mille XP', desc: '1000 XP cumulés', test: () => S.xp >= 1000 },
   { id: 'pron7', ic: '👅', title: 'Lengua de trapo', desc: '7 sessions de prononciation', test: () => (S.pronDays || 0) >= 7 },
   { id: 'conj25', ic: '🔩', title: 'Conjugueur', desc: '25 verbes conjugués', test: () => (S.conjDone || 0) >= 25 },
@@ -2090,9 +2095,17 @@ function renderExamHome() {
       ${progressChart()}
     </div>
 
+    <button class="tile dele-tile" onclick="setView('dele')">
+      <div class="ic e">🔥</div>
+      <div class="tx"><b>Examen DELE C1 · Prueba 1</b>
+        <span>Le vrai calibre : 40 questions, 90 min, textes de 250 à 500 mots.${deleBadge()}</span></div>
+      <div class="ch">›</div>
+    </button>
+
     <div class="card">
       <h2 style="font-size:16px">Nouvel examen blanc</h2>
       <div class="sub">40 questions chronométrées (écoute + grammaire + lecture). Choisis la difficulté :</div>
+      <div class="sub" style="color:var(--dim);font-size:12px;margin-top:4px">Banque courte et calibrée B1–B2 : utile pour la routine, insuffisante pour mesurer un C1.</div>
       <div class="seg" id="diffseg">
         ${segBtn(1, 'Facile', 'A2–B1')}
         ${segBtn(2, 'Standard', 'B1–B2')}
@@ -2104,6 +2117,11 @@ function renderExamHome() {
     ${histRows ? `<div class="card"><h2 style="font-size:16px">Historique</h2><div class="mt">${histRows}</div></div>` : ''}
     <button class="btn ghost" onclick="startExam('placement')">Refaire un test de niveau</button>
   `;
+}
+function deleBadge() {
+  const h = (S.dele && S.dele.hist) || [];
+  if (!h.length) return ' Jamais tenté.';
+  return ' Meilleur : ' + h.reduce((m, r) => Math.max(m, r.pct), 0) + ' %.';
 }
 function setExamDiff(d) {
   S.level = d; save();
@@ -3152,6 +3170,416 @@ function redacExport(id) {
   S.redaccion[id] = { text: st.text, done: true, ts: Date.now() };
   if (!already) addXp(20);
   markStudy(); save(); checkAchievements();
+}
+
+/* ============================================================
+   EXAMEN DELE C1 — Prueba 1 : comprensión de lectura y uso de la lengua
+   40 items · 4 tareas · 90 minutes chronométrées, compte à rebours.
+   Toutes les options sont mélangées à l'exécution : impossible de
+   mémoriser « c'est la B ». Seul examen de l'app calibré au vrai C1.
+   ============================================================ */
+
+const DELE_MINS = 90;
+const DELE_PB = '\u0001';   // séparateur de paragraphes interne
+const DELE_TAREAS = [
+  { n: 1, ic: '📖', name: 'Comprensión de lectura', sub: 'Texto largo · 6 preguntas de inferencia' },
+  { n: 2, ic: '🧩', name: 'Reconstruir un texto', sub: '6 huecos · 8 fragmentos (2 sobran)' },
+  { n: 3, ic: '🔤', name: 'Seleccionar la palabra', sub: '14 huecos léxicos · colocaciones' },
+  { n: 4, ic: '⚙️', name: 'Uso de la lengua', sub: '14 huecos gramaticales' }
+];
+const DELE_TIP = {
+  1: "Tes pertes sont en compréhension fine, pas en vocabulaire. Avant de répondre, force-toi à résumer chaque paragraphe en une phrase : les questions du C1 portent sur la FONCTION d'un paragraphe (concéder, réfuter, illustrer), pas sur son contenu.",
+  2: "C'est la tâche la plus C1 des quatre, et la seule qu'aucun vocabulaire ne permet de contourner. Cherche d'abord les connecteurs et les anaphores (« esa », « ambas », « allí », « Otras »), jamais le thème : deux fragments peuvent parler de la même chose et un seul recoller au tissu du texte.",
+  3: "Ton lexique est bon, tes collocations ne le sont pas — c'est exactement ce qui fait qu'un texte « sonne » traduit du français. Passe par le hub A fondo, et surtout par Rédaction : la collocation ne s'apprend qu'en produisant.",
+  4: "Trou grammatical réel, pas un accident. Reprends les leçons C1→C2 de l'onglet Grammaire et le Repaso a fondo — et relis les explications de tes erreurs ci-dessous, elles ciblent des pièges de francophone."
+};
+
+function dlEnsure() {
+  if (!S.dele || typeof S.dele !== 'object') S.dele = {};
+  if (!Array.isArray(S.dele.hist)) S.dele.hist = [];
+  if (!S.dele.use) S.dele.use = {};
+  ['lectura', 'recon', 'huecos', 'gram'].forEach(k => { if (!S.dele.use[k]) S.dele.use[k] = {}; });
+  return S.dele;
+}
+function dlTrunc(s, n) { return s.length > n ? s.slice(0, n - 1).trim() + '…' : s; }
+function shufOpts(opts, correct) {
+  const idx = shuffle(opts.map((o, i) => i));
+  return { opts: idx.map(i => opts[i]), correct: idx.indexOf(correct) };
+}
+function dlLeastUsed(list, bag) {
+  let min = Infinity;
+  list.forEach(x => { const u = bag[x.id] || 0; if (u < min) min = u; });
+  return shuffle(list.filter(x => (bag[x.id] || 0) === min))[0];
+}
+/* Phrase contenant le trou n, marqueur remplacé par ______ (sans lookbehind : Safari ancien) */
+function dlSentence(text, n) {
+  const mark = '[[' + n + ']]';
+  const flat = text.replace(/\s+/g, ' ');
+  const pos = flat.indexOf(mark);
+  if (pos < 0) return mark;
+  let start = 0, m;
+  const re = /[.!?:»]\s/g;
+  while ((m = re.exec(flat)) !== null) { if (m.index + m[0].length <= pos) start = m.index + m[0].length; else break; }
+  let end = flat.length;
+  const re2 = /[.!?](\s|$)/g; re2.lastIndex = pos;
+  const m2 = re2.exec(flat);
+  if (m2) end = m2.index + 1;
+  // Les autres trous de la même phrase deviennent (n) : jamais de marqueur brut à l'écran.
+  return flat.slice(start, end).replace(mark, '______').replace(/\[\[(\d+)\]\]/g, '($1)').trim();
+}
+function dlParaHtml(escaped) {
+  return '<p>' + escaped.replace(/\n{2,}/g, DELE_PB).replace(/\n/g, ' ').split(DELE_PB).join('</p><p>') + '</p>';
+}
+/* Texte en paragraphes, chaque trou rendu selon son état */
+function dlGapText(raw, gaps, cur, fill) {
+  let h = escapeHtml(raw);
+  for (let n = 1; n <= gaps; n++) {
+    const v = fill ? fill(n) : null;
+    // Le trou courant reste surligné, mais affiche la réponse déjà donnée s'il y en a une.
+    const cls = n === cur ? 'gapnow' : (v ? 'gapdone' : 'gapempty');
+    const inner = v ? escapeHtml(v) : '(' + n + ')';
+    h = h.split('[[' + n + ']]').join('<span class="' + cls + '">' + inner + '</span>');
+  }
+  return dlParaHtml(h);
+}
+function dlPara(raw) { return dlParaHtml(escapeHtml(raw)); }
+
+/* ---------- Construction de l'épreuve ---------- */
+function buildDele() {
+  const d = dlEnsure(), items = [];
+
+  // Tarea 1 · comprensión de lectura (texte long, 6 questions d'inférence)
+  const lec = dlLeastUsed(C1_LECTURA, d.use.lectura);
+  lec.qs.forEach(q => {
+    const s = shufOpts(q[1], q[2]);
+    items.push({ t: 1, src: lec.id, title: lec.title, text: lec.text, stem: q[0], opts: s.opts, correct: s.correct, expl: q[3] });
+  });
+
+  // Tarea 2 · reconstruir un texto (6 trous, 8 fragments dont 2 leurres)
+  const rec = dlLeastUsed(C1_RECON, d.use.recon);
+  const order = shuffle(rec.fragments.map((f, i) => i));
+  const frags = order.map(i => rec.fragments[i]);
+  rec.correct.forEach((c, g) => {
+    items.push({
+      t: 2, src: rec.id, title: rec.title, text: rec.text, gaps: rec.correct.length,
+      gap: g + 1, frags, correct: order.indexOf(c), expl: rec.expl[g]
+    });
+  });
+
+  // Tarea 3 · seleccionar la palabra correcta (14 trous lexicaux)
+  const hue = dlLeastUsed(C1_HUECOS, d.use.huecos);
+  hue.gaps.forEach((g, i) => {
+    const s = shufOpts(g[0], g[1]);
+    items.push({
+      t: 3, src: hue.id, title: hue.title, text: hue.text, gaps: hue.gaps.length, gap: i + 1,
+      opts: s.opts, correct: s.correct, expl: g[2], sentence: dlSentence(hue.text, i + 1)
+    });
+  });
+
+  // Tarea 4 · uso de la lengua (14 items de grammaire, les moins vus d'abord)
+  const gbag = d.use.gram;
+  shuffle(C1_GRAM.map((a, i) => ({ a, i })))
+    .sort((x, y) => (gbag[x.i] || 0) - (gbag[y.i] || 0))
+    .slice(0, 14)
+    .forEach(o => {
+      const s = shufOpts(o.a[1], o.a[2]);
+      items.push({ t: 4, src: o.i, stem: o.a[0], opts: s.opts, correct: s.correct, expl: o.a[3] });
+    });
+
+  return { items, lec, rec, hue };
+}
+
+let DL = null, dlTimer = null;
+
+function startDele() {
+  const b = buildDele();
+  DL = {
+    items: b.items, i: 0, ans: new Array(b.items.length).fill(null),
+    start: Date.now(), endAt: Date.now() + DELE_MINS * 60000,
+    live: true,
+    ids: { lectura: b.lec.id, recon: b.rec.id, huecos: b.hue.id }
+  };
+  window.addEventListener('beforeunload', deleBeforeUnload);
+  view = 'dele';
+  renderDeleRun();
+  startDlTimer();
+}
+function startDlTimer() {
+  clearInterval(dlTimer);
+  dlTimer = setInterval(() => {
+    const el = document.getElementById('dltime');
+    if (!el || !DL) { clearInterval(dlTimer); return; }
+    const left = DL.endAt - Date.now();
+    if (left <= 0) { clearInterval(dlTimer); finishDele(true); return; }
+    const s = Math.floor(left / 1000);
+    el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    el.parentElement.classList.toggle('low', left < 10 * 60000);
+  }, 1000);
+}
+function dlLeftLabel() {
+  const s = Math.max(0, Math.floor((DL.endAt - Date.now()) / 1000));
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+
+function renderDeleRun() {
+  const it = DL.items[DL.i], n = DL.items.length, a = DL.ans[DL.i];
+  const T = DELE_TAREAS.find(t => t.n === it.t);
+  let body = '', optHtml = '';
+
+  if (it.t === 1) {
+    body = `<details class="aid dlsrc" open><summary>📄 ${escapeHtml(it.title)}</summary><div class="dltext">${dlPara(it.text)}</div></details>
+            <div class="stem">${escapeHtml(it.stem)}</div>`;
+  } else if (it.t === 2) {
+    const fill = k => {
+      const j = DL.items.findIndex(x => x.t === 2 && x.gap === k);
+      const v = j >= 0 ? DL.ans[j] : null;
+      return v == null ? null : '« ' + dlTrunc(it.frags[v], 40) + ' »';
+    };
+    body = `<div class="dltext dlbox">${dlGapText(it.text, it.gaps, it.gap, fill)}</div>
+            <div class="stem">¿Qué fragmento va en el hueco <b>${it.gap}</b>?</div>`;
+  } else if (it.t === 3) {
+    const fill = k => {
+      const j = DL.items.findIndex(x => x.t === 3 && x.gap === k);
+      const v = j >= 0 ? DL.ans[j] : null;
+      return v == null ? null : DL.items[j].opts[v];
+    };
+    body = `<details class="aid dlsrc"><summary>📄 ${escapeHtml(it.title)} — texto completo</summary><div class="dltext">${dlGapText(it.text, it.gaps, it.gap, fill)}</div></details>
+            <div class="stem">${escapeHtml(it.sentence).split('______').join('<span class="blank">______</span>')}</div>`;
+  } else {
+    body = `<div class="stem">${escapeHtml(it.stem).split('______').join('<span class="blank">______</span>')}</div>`;
+  }
+
+  if (it.t === 2) {
+    const usedBy = {};
+    DL.items.forEach((x, j) => { if (x.t === 2 && DL.ans[j] != null) usedBy[DL.ans[j]] = x.gap; });
+    optHtml = it.frags.map((f, k) => {
+      const g = usedBy[k], mine = g === it.gap;
+      return `<button class="opt dlfrag${mine ? ' on' : ''}${g && !mine ? ' dim' : ''}" onclick="dlAnswer(${k})">
+        <span class="lab">${'ABCDEFGH'[k]}</span>${escapeHtml(f)}
+        ${g ? `<span class="fragtag">${mine ? '✓ aquí' : '→ hueco ' + g}</span>` : ''}</button>`;
+    }).join('');
+  } else {
+    optHtml = it.opts.map((o, k) =>
+      `<button class="opt${a === k ? ' on' : ''}" onclick="dlAnswer(${k})"><span class="lab">${'ABCD'[k]}</span>${escapeHtml(o)}</button>`).join('');
+  }
+
+  const grid = DL.items.map((x, j) => {
+    const cls = j === DL.i ? 'cur' : (DL.ans[j] != null ? 'ok' : '');
+    return `<button class="dlcell ${cls}" onclick="dlGoto(${j})">${j + 1}</button>`;
+  }).join('');
+  const answered = DL.ans.filter(v => v != null).length;
+
+  app.innerHTML = `
+    <div class="exbar">
+      <span class="sec R">Tarea ${it.t}</span>
+      <span class="timer" id="dltimew">⏳ <span id="dltime">${dlLeftLabel()}</span></span>
+      <span class="sub">${DL.i + 1} / ${n}</span>
+    </div>
+    <div class="pbar mb"><i style="width:${DL.i / n * 100}%"></i></div>
+    <div class="dlhead">${T.ic} <b>${T.name}</b> <span class="sub">· ${T.sub}</span></div>
+    ${body}
+    <div id="opts">${optHtml}</div>
+    <div class="dlnav">
+      <button class="btn ghost" ${DL.i === 0 ? 'disabled' : ''} onclick="dlGoto(${DL.i - 1})">← Anterior</button>
+      <button class="btn ghost" ${DL.i === n - 1 ? 'disabled' : ''} onclick="dlGoto(${DL.i + 1})">Siguiente →</button>
+    </div>
+    <div class="card">
+      <div class="sub mb">Respondidas : <b>${answered}</b> / ${n}</div>
+      <div class="dlgrid">${grid}</div>
+    </div>
+    <button class="btn" onclick="askFinishDele()">Terminar el examen</button>
+    <button class="btn ghost" onclick="quitDele()">Abandonner</button>
+  `;
+}
+function dlAnswer(k) {
+  const it = DL.items[DL.i];
+  if (it.t === 2) {
+    // un fragment n'occupe qu'un seul trou : on libère celui qu'il occupait
+    DL.items.forEach((x, j) => { if (x.t === 2 && j !== DL.i && DL.ans[j] === k) DL.ans[j] = null; });
+  }
+  DL.ans[DL.i] = k;
+  if (DL.i < DL.items.length - 1) DL.i++;
+  renderDeleRun();
+  window.scrollTo(0, 0);
+}
+function dlGoto(i) {
+  if (i < 0 || i >= DL.items.length) return;
+  DL.i = i; renderDeleRun(); window.scrollTo(0, 0);
+}
+function askFinishDele() {
+  const left = DL.ans.filter(v => v == null).length;
+  if (left && !confirm('Il reste ' + left + ' question(s) sans réponse. Terminer quand même ?')) return;
+  finishDele(false);
+}
+function quitDele() {
+  if (!confirm("Abandonner l'examen DELE ? Rien ne sera enregistré.")) return;
+  dlAbort();
+  setView('exam');
+}
+function dlAbort() {
+  clearInterval(dlTimer);
+  if (DL) DL.live = false;
+  DL = null;
+  window.removeEventListener('beforeunload', deleBeforeUnload);
+}
+function deleBeforeUnload(e) { e.preventDefault(); e.returnValue = ''; return ''; }
+/* Une mauvaise touche sur la barre de nav ne doit pas effacer 90 minutes de copie. */
+function deleGuard(v) {
+  if (!DL || !DL.live || v === 'dele') return true;
+  if (!confirm("Un examen DELE est en cours. Le quitter maintenant ? Rien ne sera enregistré.")) return false;
+  dlAbort();
+  return true;
+}
+
+/* ---------- Résultat ---------- */
+function finishDele(auto) {
+  if (!DL) return;
+  clearInterval(dlTimer);
+  DL.live = false;
+  window.removeEventListener('beforeunload', deleBeforeUnload);
+  const d = dlEnsure();
+  const per = {}; DELE_TAREAS.forEach(t => per[t.n] = { c: 0, q: 0 });
+  DL.items.forEach((it, j) => { per[it.t].q++; if (DL.ans[j] === it.correct) per[it.t].c++; });
+  const c = DELE_TAREAS.reduce((s, t) => s + per[t.n].c, 0), n = DL.items.length;
+  const pct = Math.round(c / n * 100);
+  const mins = Math.min(DELE_MINS, Math.max(1, Math.round((Date.now() - DL.start) / 60000)));
+
+  // rotation : on marque les supports servis et les items de grammaire tirés
+  ['lectura', 'recon', 'huecos'].forEach(k => { const id = DL.ids[k]; d.use[k][id] = (d.use[k][id] || 0) + 1; });
+  DL.items.forEach(it => { if (it.t === 4) d.use.gram[it.src] = (d.use.gram[it.src] || 0) + 1; });
+
+  d.hist.push({
+    ts: Date.now(), date: todayStr(), pct, c, n, mins, auto: !!auto,
+    per: { 1: per[1].c, 2: per[2].c, 3: per[3].c, 4: per[4].c }
+  });
+  if (d.hist.length > 20) d.hist = d.hist.slice(-20);
+  addXp(60); markStudy(); touchDay(); save();
+
+  // Les tâches 3 et 4 sont autonomes → « Mes erreurs ». Les tâches 1 et 2 n'ont
+  // aucun sens hors de leur texte : elles restent dans la correction ci-dessous.
+  DL._wrong = DL.items.map((it, j) => ({ it, a: DL.ans[j] })).filter(x => x.a !== x.it.correct);
+  DL._wrong.forEach(w => {
+    if (w.it.t !== 3 && w.it.t !== 4) return;
+    recordMistake({
+      kind: 'gram',
+      q: w.it.t === 3 ? w.it.sentence : w.it.stem,
+      opts: w.it.opts, correct: w.it.correct, expl: w.it.expl || '',
+      cat: 'DELE C1 · ' + (w.it.t === 3 ? 'léxico' : 'gramática')
+    });
+  });
+
+  const worst = DELE_TAREAS.slice().sort((x, y) => (per[x.n].c / per[x.n].q) - (per[y.n].c / per[y.n].q))[0];
+  const worstPct = Math.round(per[worst.n].c / per[worst.n].q * 100);
+  const prev = d.hist.length >= 2 ? d.hist[d.hist.length - 2].pct : null;
+  const delta = prev != null ? pct - prev : null;
+
+  const verdict =
+    pct >= 90 ? { em: '🏆', t: 'Prueba 1 maîtrisée', m: "À ce niveau, la lecture et l'usage de la langue ne sont plus ton facteur limitant. Ce qui te sépare du C1 se joue désormais dans le Grupo 2 : écoute au débit natif et expression écrite." } :
+    pct >= 75 ? { em: '🎯', t: 'Zone de passage confortable', m: "Tu passerais la Prueba 1 sans stress. Reste à la rendre insensible à la fatigue : referme l'écart sur ta tâche la plus faible." } :
+    pct >= 60 ? { em: '📊', t: 'Ça passe, sans marge', m: "Au-dessus du seuil, mais un mauvais jour te fait basculer. Une seule tâche te coûte l'essentiel des points." } :
+                { em: '⚠️', t: 'Sous le seuil de travail', m: "C'est le vrai calibre C1, et il mord. Aucun drame : c'est simplement la première mesure honnête de ton niveau de lecture." };
+
+  const rows = DELE_TAREAS.map(t => {
+    const p = Math.round(per[t.n].c / per[t.n].q * 100);
+    const col = p >= 75 ? 'var(--good)' : p >= 60 ? 'var(--accent)' : 'var(--bad)';
+    return `<div class="dlrow">
+      <div class="dlname">${t.ic} <b>Tarea ${t.n}</b> <span class="sub">${t.name}</span></div>
+      <div class="dlbar"><i style="width:${p}%;background:${col}"></i></div>
+      <div class="dlsc" style="color:${col}">${per[t.n].c}/${per[t.n].q}</div>
+    </div>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="card big">
+      <div class="em">${verdict.em}</div>
+      <div class="score">${c}<span style="font-size:20px;color:var(--muted)"> / ${n}</span></div>
+      <div class="lab">${verdict.t} · ${pct} %</div>
+      ${delta != null ? `<div class="pill ${delta >= 0 ? '' : 'warn'}" style="margin-top:8px">${delta >= 0 ? '▲ +' : '▼ '}${delta} pts depuis le dernier DELE</div>` : ''}
+      ${auto ? '<div class="pill warn" style="margin-top:8px">⏳ Temps écoulé — les questions non traitées comptent comme fausses</div>' : ''}
+    </div>
+    <div class="card">
+      <h2 style="font-size:16px">Par tâche</h2>
+      <div class="mt">${rows}</div>
+      <div class="sub center mt">Terminé en ${mins}′ sur ${DELE_MINS}′</div>
+    </div>
+    <div class="card">
+      <div class="sub" style="text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:800;color:var(--accent)">Le verdict</div>
+      <div class="mt">${verdict.m}</div>
+      <div class="mt"><b>Ton point faible : Tarea ${worst.n} — ${worst.name} (${worstPct} %).</b></div>
+      <div class="sub mt">${DELE_TIP[worst.n]}</div>
+    </div>
+    ${DL._wrong.length ? `<button class="btn sec" onclick="renderDeleReview()">Corriger mes ${DL._wrong.length} erreur(s)</button>` : '<div class="card center">40/40 au calibre C1. Là, c\'est un vrai score. 🔥</div>'}
+    <button class="btn ghost mt" onclick="setView('exam')">Retour aux examens</button>
+    <div class="sub center mt">Au vrai DELE, l'admission se joue par groupes d'épreuves : la Prueba 1 compte dans le Grupo 1 avec l'oral, et un bon score ici ne compense jamais un Grupo 2 (écoute + expression écrite) faible.</div>
+  `;
+  window.scrollTo(0, 0);
+}
+
+function renderDeleReview() {
+  const blocks = DELE_TAREAS.map(t => {
+    const ws = DL._wrong.filter(w => w.it.t === t.n);
+    if (!ws.length) return '';
+    const rows = ws.map(w => {
+      const it = w.it;
+      const list = it.t === 2 ? it.frags : it.opts;
+      const labs = it.t === 2 ? 'ABCDEFGH' : 'ABCD';
+      const yours = w.a != null ? labs[w.a] + '. ' + dlTrunc(list[w.a], 90) : '(sans réponse)';
+      const good = labs[it.correct] + '. ' + dlTrunc(list[it.correct], 90);
+      const q = it.t === 1 ? it.stem
+        : it.t === 2 ? '🧩 ' + it.title + ' — hueco ' + it.gap
+          : it.t === 3 ? it.sentence
+            : it.stem.split('______').join('____');
+      return `<div class="review-item">
+        <div class="qq">${escapeHtml(q)}</div>
+        <div class="ans"><span class="ko">${escapeHtml(yours)}</span> → <span class="ok">${escapeHtml(good)}</span></div>
+        ${it.expl ? `<div class="sub mt">${escapeHtml(it.expl)}</div>` : ''}
+      </div>`;
+    }).join('');
+    return `<div class="card"><h2 style="font-size:15px">${t.ic} Tarea ${t.n} · ${t.name}</h2><div class="sub">${ws.length} erreur(s)</div></div>${rows}`;
+  }).join('');
+  app.innerHTML = `
+    <div class="card"><h2>Correction</h2><div class="sub">Les erreurs de léxico et de gramática ont rejoint « Mes erreurs » : tu les rejoueras.</div></div>
+    ${blocks}
+    <button class="btn ghost mt" onclick="setView('exam')">Terminé</button>
+  `;
+  window.scrollTo(0, 0);
+}
+
+/* ---------- Accueil de l'épreuve ---------- */
+function renderDeleHome() {
+  const d = dlEnsure();
+  const best = d.hist.reduce((m, r) => Math.max(m, r.pct), 0);
+  const last = d.hist[d.hist.length - 1];
+  const tareas = DELE_TAREAS.map(t =>
+    `<div class="dlcard"><div class="dlname">${t.ic} <b>Tarea ${t.n}</b> · ${t.name}</div><div class="sub">${t.sub}</div></div>`).join('');
+  const hist = d.hist.slice().reverse().slice(0, 8).map(r => `
+    <div class="hist">
+      <div><b>${r.c}/${r.n}</b> <span class="sub">${r.pct} %</span><div class="d">${r.date}${r.auto ? ' · temps écoulé' : ''}</div></div>
+      <div class="sub" style="text-align:right">T1 ${r.per[1]}/6 · T2 ${r.per[2]}/6<div class="d">T3 ${r.per[3]}/14 · T4 ${r.per[4]}/14</div></div>
+    </div>`).join('');
+
+  app.innerHTML = `
+    <div class="card">
+      <h2>🔥 Examen DELE C1 · Prueba 1</h2>
+      <div class="sub">Comprensión de lectura y uso de la lengua. <b>40 questions, 90 minutes</b>, quatre tâches enchaînées — le format officiel, au calibre officiel.</div>
+      <div class="pill warn mt">Rien à voir avec l'examen blanc de l'app : les textes font 250 à 500 mots, les options sont remélangées à chaque passage, et deux tâches sur quatre n'existent nulle part ailleurs.</div>
+    </div>
+    <div class="card">
+      <h2 style="font-size:16px">Les quatre tâches</h2>
+      <div class="mt">${tareas}</div>
+    </div>
+    ${d.hist.length ? `<div class="card">
+      <div class="scoreline">
+        <div><div class="v" style="color:var(--accent)">${best} %</div><div class="k">meilleur</div></div>
+        <div><div class="v" style="color:var(--blue)">${last.pct} %</div><div class="k">dernier</div></div>
+        <div><div class="v">${d.hist.length}</div><div class="k">passages</div></div>
+      </div>
+    </div>` : ''}
+    <button class="btn" onclick="startDele()">Commencer · 90 minutes</button>
+    <div class="sub center mt">Compte à rebours. À zéro, la copie se ferme toute seule.</div>
+    ${hist ? `<div class="card"><h2 style="font-size:16px">Historique</h2><div class="mt">${hist}</div></div>` : ''}
+    <button class="btn ghost mt" onclick="setView('exam')">Retour</button>
+  `;
 }
 
 /* ---------- Boot ---------- */
