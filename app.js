@@ -166,6 +166,24 @@ function seededOrder(n, seed) {
 }
 /* mots ajoutés par l'utilisateur (depuis la Lecture du jour) : ré-injectés
    dans le deck à chaque ouverture, APRÈS le vocabulaire intégré (indices stables) */
+/* ⚠️ S.cards est indexé par POSITION : quand un lot intégré s'ajoute, les mots perso
+   glissent d'autant. On déplace leur état SRS pour qu'il suive le bon mot.
+   893 = taille du deck intégré avant le lot 9 (sauvegardes antérieures sans builtinLen). */
+const BUILTIN_N = window.VOCAB.length;
+(function remapUserCards() {
+  const nU = (S.userVocab || []).length;
+  const prev = typeof S.builtinLen === 'number' ? S.builtinLen : 893;
+  if (nU && prev !== BUILTIN_N) {
+    const moved = {};
+    for (let k = 0; k < nU; k++) {
+      const c = S.cards[prev + k];
+      delete S.cards[prev + k];
+      if (c) moved[BUILTIN_N + k] = c;
+    }
+    Object.assign(S.cards, moved);
+  }
+  if (S.builtinLen !== BUILTIN_N) { S.builtinLen = BUILTIN_N; save(); }
+})();
 if (S.userVocab && S.userVocab.length) window.VOCAB = window.VOCAB.concat(S.userVocab);
 const VOCAB_ORDER = seededOrder(VOCAB.length, 990);
 function newAvailable(unlimited) {
@@ -202,6 +220,26 @@ function buildThemeQueue(theme) {
   }
   shuffle(due); shuffle(news);
   return due.concat(news);
+}
+// « Revoir » : cartes DÉJÀ VUES, même non dues — les plus fragiles d'abord.
+// Fragilité = récupérabilité FSRS actuelle (probabilité de s'en souvenir maintenant) ;
+// les dues passent devant, puis à égalité celles qui ont le plus d'oublis.
+function cardRetrNow(c, now) {
+  if (c.due <= now) return -1;
+  const stab = typeof c.fsrsS === 'number' ? c.fsrsS : Math.max(0.5, c.interval || 0);
+  const last = c.last || (c.due - Math.max(1, c.interval || 1) * DAY);
+  return fsrsRetr(Math.max(0, (now - last) / DAY), Math.max(0.1, stab));
+}
+function buildReviseQueue(theme) {
+  const now = Date.now(), all = [];
+  for (const k in S.cards) {
+    const i = +k, c = S.cards[k];
+    if (!c || !c.introduced || !VOCAB[i]) continue;
+    if (theme && VOCAB[i][3] !== theme) continue;
+    all.push([i, cardRetrNow(c, now), c.lapses || 0]);
+  }
+  all.sort((a, b) => (a[1] - b[1]) || (b[2] - a[2]));
+  return all.map(x => x[0]);
 }
 /* ---------- FSRS (Free Spaced Repetition Scheduler v5, paramètres par défaut) ----------
    Modèle Difficulté / Stabilité / Récupérabilité : au lieu d'un simple facteur SM-2,
@@ -253,7 +291,9 @@ function fsrsSchedule(c, rating, now) {
 // rating: 0 again, 1 hard, 2 good, 3 easy
 function rateCard(i, rating) {
   const c = cardState(i);
-  const wasReview = !!c.introduced && c.interval >= 1;   // vraie révision (pour le diagnostic)
+  // vraie révision, À L'HEURE (pour le diagnostic) : une révision anticipée (« Revoir »)
+  // ne mesure pas la rétention, elle gonflerait le taux
+  const wasReview = !!c.introduced && c.interval >= 1 && c.due <= Date.now();
   const wasMature = c.interval >= 21;
   const prevInt = c.interval;
   fsrsMigrate(c);
@@ -1224,6 +1264,7 @@ function renderAnkiHome() {
   const total = due + news;
   const remaining = totalUnlearned();              // toutes les cartes encore jamais vues
   const unlimitedTotal = due + remaining;
+  const seen = learnedCount();
   const rg = currentRegime();
   const regChips = REGIME_ORDER.map(k => {
     const r = REGIMES[k], on = (S.regime || DEFAULT_REGIME) === k;
@@ -1264,15 +1305,22 @@ function renderAnkiHome() {
       <h2 style="font-size:16px">🌊 Par vagues de ${WAVE}</h2>
       <div class="sub">Sans plafond quotidien, mais par vagues digestes : ${WAVE} cartes, tu souffles, tu enchaînes si tu veux. Une carte ratée revient quelques cartes plus loin, dans la même vague, jusqu'à ce qu'elle tienne.</div>
       <button class="btn mt sec" style="border-color:var(--accent);color:var(--accent)" onclick="startReview(true)" ${unlimitedTotal === 0 ? 'disabled' : ''}>
-        ${unlimitedTotal === 0 ? 'Tout est appris 🏆' : `Lancer une vague · ${Math.min(WAVE, unlimitedTotal)} carte(s) sur ${unlimitedTotal}`}
+        ${unlimitedTotal === 0 ? 'Tous les mots ont été vus ✓' : `Lancer une vague · ${Math.min(WAVE, unlimitedTotal)} carte(s) sur ${unlimitedTotal}`}
       </button>
       <div class="sub center mt">${remaining} mot(s) encore jamais vus</div>
     </div>
 
+    ${seen ? `<div class="card" style="border-color:var(--blue)">
+      <h2 style="font-size:16px">🔁 Revoir ce que tu as déjà vu</h2>
+      <div class="sub">Vu ne veut pas dire su. Une vague de ${WAVE} cartes déjà vues, <b style="color:var(--txt)">les plus fragiles d'abord</b> (celles que ta mémoire est le plus près de lâcher), même si elles ne sont pas dues. Note-toi honnêtement : « Encore » remet la carte en apprentissage et elle revient vite — c'est exactement le but.</div>
+      <button class="btn mt sec" style="border-color:var(--blue);color:var(--blue)" onclick="startRevise()">Revoir une vague · ${Math.min(WAVE, seen)} carte(s)</button>
+      <div class="sub center mt">Un thème précis ? Touche-le plus bas : s'il est à jour, il passe en mode revoir.</div>
+    </div>` : ''}
+
     <button class="btn sec" onclick="renderVocabBrowser('')">🔍 Parcourir / rechercher les ${VOCAB.length} mots</button>
 
     <div class="card mt">
-      <h2 style="font-size:15px">Thèmes (${Object.keys(themes).length}) · touche pour réviser</h2>
+      <h2 style="font-size:15px">Thèmes (${Object.keys(themes).length}) · touche pour réviser ou revoir</h2>
       <div class="segwrap mt">${themeHtml}</div>
     </div>
     <button class="btn sec" onclick="renderSrsDiag()">📊 Diagnostic — l'algo est-il efficace ?</button>
@@ -1339,8 +1387,14 @@ function startReview(unlimited) {
 }
 function startThemeReview(theme) {
   const queue = buildThemeQueue(theme);
-  if (queue.length === 0) { toast('Ce thème est déjà à jour 🎉'); return; }
+  if (queue.length === 0) { toast('Thème à jour — on revoit ses cartes les plus fragiles'); return startRevise(theme); }
   R = { queue, pos: 0, shown: false, reviewed: 0, unlimited: true, theme };
+  renderCard();
+}
+function startRevise(theme) {
+  const queue = shuffle(buildReviseQueue(theme).slice(0, WAVE));
+  if (queue.length === 0) { toast('Aucune carte déjà vue à revoir pour l’instant'); return; }
+  R = { queue, pos: 0, shown: false, reviewed: 0, unlimited: true, theme: theme || null, revise: true };
   renderCard();
 }
 // Sépare la traduction française de ses notes "explicatives" (faux-amis, gloses
@@ -1373,7 +1427,7 @@ function renderCard() {
   const enEsc = en.replace(/'/g, "\\'");
   R.shown = false;
   app.innerHTML = `
-    <div class="qmeta"><span>${isNew ? '🆕 Nouvelle' : '🔁 Révision'}</span><span>${R.pos + 1} / ${R.queue.length}</span></div>
+    <div class="qmeta"><span>${isNew ? '🆕 Nouvelle' : R.revise ? '🔁 Revoir' : '🔁 Révision'}</span><span>${R.pos + 1} / ${R.queue.length}</span></div>
     <div class="flash" onclick="flip()">
       <div class="theme">${theme} · <span style="color:var(--accent)">${dirBadge}</span></div>
       <div class="front" style="font-size:${psize}">${prompt}</div>
@@ -1429,7 +1483,9 @@ function finishReview() {
       <div class="mt sub">Reviens demain : les cartes réapparaîtront au moment optimal.</div>
     </div>
     <button class="btn" onclick="setView('anki')">Terminé</button>
-    ${R.theme
+    ${R.revise
+      ? `<button class="btn sec mt" onclick="startRevise(${R.theme ? `'${R.theme}'` : ''})">🔁 Revoir encore · ${R.theme ? `« ${R.theme} »` : `les ${WAVE} plus fragiles`}</button>`
+      : R.theme
       ? (buildThemeQueue(R.theme).length ? `<button class="btn sec mt" onclick="startThemeReview('${R.theme}')">Continuer « ${R.theme} » (${buildThemeQueue(R.theme).length})</button>` : '')
       : R.unlimited
       ? ((dueCards().length + totalUnlearned()) ? `<button class="btn sec mt" onclick="startReview(true)">🌊 Vague suivante · ${dueCards().length + totalUnlearned()} restante(s)</button>` : '')
