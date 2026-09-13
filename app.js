@@ -45,6 +45,7 @@ const DEFAULT = {
   voix: null,           // nom de la voix espagnole choisie (null = automatique)
   regime: 'rapido',     // intensité quotidienne (cf REGIMES)
   dele: null,           // DELE C1 Prueba 1 : {hist:[], use:{lectura,recon,huecos,gram}}
+  idiom: null,          // module idiomatique : {seen:{}, date, days, supOk, supN, calOk, calN}
   firstRun: true
 };
 
@@ -419,11 +420,11 @@ function lecWordSheet(word, gloss){
   if(inDeck) add.disabled=true; else add.onclick=()=>addWordToAnki(word, gloss);
   box.append(head,def,add); sheet.append(box); document.body.appendChild(sheet);
 }
-function addWordToAnki(word, gloss){
+function addWordToAnki(word, gloss, ejemplo, tema){
   const w=String(word).trim();
   if(wordInDeck(w)){ toast('Déjà dans tes cartes ✓'); return; }
   if(!S.userVocab) S.userVocab=[];
-  const card=[w, gloss||w, '', 'Lectura'];
+  const card=[w, gloss||w, ejemplo||'', tema||'Lectura'];
   S.userVocab.push(card); VOCAB.push(card); VOCAB_ORDER.push(VOCAB.length-1);
   save();
   toast('🃏 « '+w+' » ajouté à tes cartes');
@@ -483,6 +484,7 @@ function render() {
   if (view === 'redaccion') return renderRedaccionHome();
   if (view === 'conj') return renderConjHome();
   if (view === 'afondo') return renderAfondoHome();
+  if (view === 'idiom') return renderIdiomHome();
   if (view === 'exam') return renderExamHome();
   if (view === 'dele') return renderDeleHome();
   if (view === 'traduire') return renderTransHome();
@@ -515,7 +517,10 @@ const ACHIEVEMENTS = [
   { id: 'pron7', ic: '👅', title: 'Lengua de trapo', desc: '7 sessions de prononciation', test: () => (S.pronDays || 0) >= 7 },
   { id: 'conj25', ic: '🔩', title: 'Conjugueur', desc: '25 verbes conjugués', test: () => (S.conjDone || 0) >= 25 },
   { id: 'conj100', ic: '⚙️', title: 'Machine à conjuguer', desc: '100 verbes conjugués', test: () => (S.conjDone || 0) >= 100 },
-  { id: 'redac3', ic: '📝', title: 'Redactor', desc: '3 rédactions travaillées', test: () => redaccionDone() >= 3 }
+  { id: 'redac3', ic: '📝', title: 'Redactor', desc: '3 rédactions travaillées', test: () => redaccionDone() >= 3 },
+  { id: 'idiom40', ic: '💬', title: 'Así se dice', desc: '40 fiches idiomatiques vues', test: () => idiomSeenCount() >= 40 },
+  { id: 'sup25', ic: '🔝', title: '¡Buenísimo!', desc: '25 superlatifs justes', test: () => ((S.idiom && S.idiom.supOk) || 0) >= 25 },
+  { id: 'sincalcos', ic: '🇫🇷', title: 'Sin calcos', desc: '50 pièges du français évités', test: () => ((S.idiom && S.idiom.calOk) || 0) >= 50 }
 ];
 function earnedIds() { const s = []; ACHIEVEMENTS.forEach(a => { try { if (a.test()) s.push(a.id); } catch (e) {} }); return s; }
 function checkAchievements() {
@@ -692,6 +697,12 @@ function renderHome() {
       <div class="ic e">✍️</div>
       <div class="body"><div class="t">Rédaction — expression écrite</div><div class="d">Essai d'opinion, mail formel… guión, connecteurs, modèle + correction par Claude</div></div>
       <div class="badge zero">${(typeof REDACCION!=='undefined')?REDACCION.length:0}</div>
+    </button>
+
+    <button class="tile" style="border-color:var(--purple)" onclick="setView('idiom')">
+      <div class="ic l">💬</div>
+      <div class="body"><div class="t">Idiomático — parler comme un natif</div><div class="d">buenísimo, diminutifs, expressions du quotidien, modismos & pièges du français</div></div>
+      <div class="badge ${idiomDayDone()?'':'zero'}">${idiomDayDone()?'✓':'!'}</div>
     </button>
 
     <button class="tile" onclick="setView('grammar')">
@@ -2823,17 +2834,20 @@ function afondoStats() {
 }
 /* ---------- DRILL AU RÉFLEXE : Ser/Estar & Por/Para (automatisation) ---------- */
 let RFX=null;
-const RFX_LABEL={serestar:'Ser / Estar', porpara:'Por / Para', mix:'Ser/Estar & Por/Para'};
+const RFX_LABEL={serestar:'Ser / Estar', porpara:'Por / Para', mix:'Ser/Estar & Por/Para', calcos:'Trampas del francés'};
 function reflexPool(mode){
   const pool=[];
-  if(mode!=='porpara' && typeof SERESTAR_DRILL!=='undefined') SERESTAR_DRILL.forEach(it=>pool.push({stem:it[0],opts:[it[1],it[2]],correct:0,expl:it[3],cat:'Ser/Estar'}));
-  if(mode!=='serestar' && typeof PORPARA_DRILL!=='undefined') PORPARA_DRILL.forEach(it=>pool.push({stem:it[0],opts:['por','para'],correct:it[1]==='por'?0:1,expl:it[2],cat:'Por/Para'}));
+  if((mode==='serestar'||mode==='mix') && typeof SERESTAR_DRILL!=='undefined') SERESTAR_DRILL.forEach(it=>pool.push({stem:it[0],opts:[it[1],it[2]],correct:0,expl:it[3],cat:'Ser/Estar'}));
+  if((mode==='porpara'||mode==='mix') && typeof PORPARA_DRILL!=='undefined') PORPARA_DRILL.forEach(it=>pool.push({stem:it[0],opts:['por','para'],correct:it[1]==='por'?0:1,expl:it[2],cat:'Por/Para'}));
+  if(mode==='calcos' && typeof IDIOM!=='undefined') IDIOM.calcos.forEach(it=>pool.push({stem:it.fr,opts:[it.ok,it.ko],correct:0,expl:it.expl,cat:'Calque · '+it.cat,swap:true}));
   return pool;
 }
 function startReflex(mode){
   const pool=reflexPool(mode);
   if(!pool.length){ toast('Rien à réviser ici 🙂'); return; }
-  RFX={mode,pool,bag:[],n:0,ok:0,streak:0,best:0,answered:false,live:true};
+  RFX={mode,pool,bag:[],n:0,ok:0,streak:0,best:0,answered:false,live:true,
+       back:mode==='calcos'?'renderIdiomHome()':'renderAfondoHome()',
+       backLabel:mode==='calcos'?'← Así se dice':'← A fondo'};
   renderReflex();
 }
 /* Touches clavier (ordinateur) : par defaut N = bouton de GAUCHE, W = bouton de DROITE.
@@ -2853,7 +2867,7 @@ function renderReflex(keep){
     if(!RFX.bag.length) RFX.bag=shuffle(RFX.pool.slice());
     it=RFX.cur=RFX.bag.pop();
     opts=it.opts; correct=it.correct;
-    if(it.cat==='Ser/Estar' && Math.random()<0.5){ opts=[it.opts[1],it.opts[0]]; correct=1; }
+    if((it.cat==='Ser/Estar'||it.swap) && Math.random()<0.5){ opts=[it.opts[1],it.opts[0]]; correct=1; }
     RFX.dispOpts=opts; RFX.dispCorrect=correct;
   }
   RFX.answered=false;
@@ -2886,6 +2900,7 @@ function reflexAnswer(k){
 function finishReflex(){
   if(!RFX) return; RFX.live=false;
   const acc=RFX.n?Math.round(100*RFX.ok/RFX.n):0, xp=Math.min(80,RFX.ok*2);
+  if(RFX.mode==='calcos'){ const st=idiomState(); st.calN=(st.calN||0)+RFX.n; st.calOk=(st.calOk||0)+RFX.ok; }
   markStudy(); if(xp) addXp(xp); save(); if(typeof checkAchievements==='function') checkAchievements();
   const msg=RFX.n>=25?'Ça, c\'est du volume — le réflexe se construit exactement là.':RFX.n>=10?'Bien. C\'est la répétition qui rend le choix automatique : reviens-y.':'Court — enchaîne beaucoup, souvent : c\'est comme ça que ça devient naturel.';
   app.innerHTML=`
@@ -2894,7 +2909,7 @@ function finishReflex(){
       <div class="lab">${RFX.ok}/${RFX.n} · meilleure série ${RFX.best}</div>
       <div class="mt sub">${msg} +${xp} XP</div></div>
     <button class="btn" onclick="startReflex('${RFX.mode}')">↻ Encore</button>
-    <button class="btn ghost mt" onclick="renderAfondoHome()">← A fondo</button>`;
+    <button class="btn ghost mt" onclick="${RFX.back||'renderAfondoHome()'}">${RFX.backLabel||'← A fondo'}</button>`;
 }
 /* Clavier : repondre sans la souris (c'est un drill de VITESSE).
    Gauche/droite = les deux touches de rfxKeys(), plus les fleches. Inactif hors du drill. */
@@ -2949,6 +2964,12 @@ function renderAfondoHome() {
       ${st.done
         ? `<button class="btn mt" onclick="renderRepasoPick()">Choisir une leçon · ${st.done} dispo·s${st.extra ? ` · +${st.extra} nouveaux exemples` : ''}</button>`
         : `<div class="sub mt" style="color:var(--dim)">🔒 Valide au moins une leçon d'abord.</div>`}
+    </div>
+
+    <div class="card" style="border-color:var(--purple)">
+      <h2 style="font-size:16px">💬 Así se dice · l'espagnol idiomatique</h2>
+      <div class="sub">Le module à part : superlatifs en <b style="color:var(--txt)">-ísimo</b>, diminutifs, expressions du quotidien, modismos et le drill des <b style="color:var(--txt)">calques du français</b>.</div>
+      <button class="btn sec mt" onclick="setView('idiom')">Ouvrir Así se dice</button>
     </div>
 
     <div class="card">
@@ -3035,7 +3056,9 @@ let BQ = null;
 function startBonusQuiz(o) {
   const items = shuffle((o.items || []).slice());
   if (!items.length) { toast('Rien à réviser ici 🙂'); return; }
-  BQ = { title: o.title, cat: o.cat || o.title, restart: o.restart || 'renderAfondoHome()', items, i: 0, correct: 0, answered: false };
+  BQ = { title: o.title, cat: o.cat || o.title, restart: o.restart || 'renderAfondoHome()',
+         back: o.back || 'renderAfondoHome()', backLabel: o.backLabel || '← A fondo',
+         items, i: 0, correct: 0, answered: false };
   renderBQ();
 }
 function renderBQ() {
@@ -3083,7 +3106,7 @@ function finishBQ() {
       <div class="mt sub">Entraînement bonus validé.</div>
     </div>
     <button class="btn" onclick="${BQ.restart}">Refaire</button>
-    <button class="btn ghost mt" onclick="renderAfondoHome()">← A fondo</button>
+    <button class="btn ghost mt" onclick="${BQ.back}">${BQ.backLabel}</button>
   `;
 }
 function startConcord() {
@@ -3636,6 +3659,414 @@ function renderDeleHome() {
     ${hist ? `<div class="card"><h2 style="font-size:16px">Historique</h2><div class="mt">${hist}</div></div>` : ''}
     <button class="btn ghost mt" onclick="setView('exam')">Retour</button>
   `;
+}
+
+/* ============================================================
+   MÓDULO IDIOMÁTICO — « Así se dice »
+   Le contraire du module « Espagnol soutenu » : la langue de tous
+   les jours. -ísimo, diminutifs, expressions, modismos, et le
+   drill des calques du français.
+   Données : data-idiomatico.js (window.IDIOM)
+   ============================================================ */
+function idiomOn() { return typeof IDIOM !== 'undefined' && IDIOM && IDIOM.expre; }
+function idiomState() {
+  if (!S.idiom) S.idiom = { seen: {}, date: null, days: 0, supOk: 0, supN: 0, calOk: 0, calN: 0 };
+  if (!S.idiom.seen) S.idiom.seen = {};
+  return S.idiom;
+}
+function idiomSeenCount() { return Object.keys(idiomState().seen).length; }
+function idiomKey(kind, i) { return kind.charAt(0) + i; }
+function idiomIsSeen(kind, i) { return !!idiomState().seen[idiomKey(kind, i)]; }
+function idiomList(kind) {
+  if (kind === 'expre') return IDIOM.expre;
+  if (kind === 'mod') return IDIOM.modismos;
+  if (kind === 'sup') return IDIOM.sup.items;
+  if (kind === 'dim') return IDIOM.dim.items;
+  if (kind === 'aum') return IDIOM.aum.items;
+  return [];
+}
+function idiomText(kind, i) {
+  const it = idiomList(kind)[i]; if (!it) return '';
+  if (kind === 'expre') return it.ej || it.es;
+  if (kind === 'mod') return it.ej || it.es;
+  if (kind === 'sup') return it.s;
+  if (kind === 'dim') return it.d;
+  if (kind === 'aum') return it.ej || it.f;
+  return '';
+}
+function idiomSay(kind, i) { idiomMark(kind, i, true); speak(idiomText(kind, i)); }
+function idiomMark(kind, i, silent) {
+  const st = idiomState(), k = idiomKey(kind, i);
+  if (!st.seen[k]) { st.seen[k] = 1; save(); if (typeof checkAchievements === 'function') checkAchievements(); }
+  else if (!silent) { delete st.seen[k]; save(); }
+  if (!silent) idiomRerender();
+}
+let IDIOM_VIEW = { screen: 'home', cat: 'Muletillas' };
+function idiomRerender() {
+  const s = IDIOM_VIEW.screen;
+  if (s === 'expre') return renderIdiomExpre(IDIOM_VIEW.cat);
+  if (s === 'mod') return renderIdiomModismos();
+  if (s === 'dim') return renderIdiomDim();
+  if (s === 'aum') return renderIdiomAum();
+  if (s === 'suplist') return renderSupList();
+  return renderIdiomHome();
+}
+/* --- la sélection du jour : déterministe, tourne chaque jour --- */
+function idiomToday() {
+  const seed = daySeed();
+  return {
+    ei: IDIOM.expre.indexOf(seededPickVals(IDIOM.expre, 1, seed * 17 + 1)[0]),
+    mi: IDIOM.modismos.indexOf(seededPickVals(IDIOM.modismos, 1, seed * 17 + 2)[0]),
+    si: IDIOM.sup.items.indexOf(seededPickVals(IDIOM.sup.items, 1, seed * 17 + 3)[0])
+  };
+}
+function idiomDayDone() { return idiomState().date === todayStr(); }
+function idiomDayMark() {
+  const st = idiomState();
+  if (st.date === todayStr()) { toast('Déjà noté aujourd\'hui 🙂'); return; }
+  st.date = todayStr(); st.days = (st.days || 0) + 1;
+  const t = idiomToday(); st.seen[idiomKey('expre', t.ei)] = 1; st.seen[idiomKey('mod', t.mi)] = 1; st.seen[idiomKey('sup', t.si)] = 1;
+  addXp(10); markStudy(); touchDay(); save(); checkAchievements();
+  toast('💬 Los de hoy, anotados. +10 XP');
+  renderIdiomHome();
+}
+/* --- ajouter une expression à tes cartes (SRS) --- */
+function idiomDeckWord(kind, i) {
+  const it = idiomList(kind)[i]; if (!it) return '';
+  return kind === 'sup' ? it.s : kind === 'dim' ? it.d : kind === 'aum' ? it.f : it.es;
+}
+function idiomAdd(kind, i) {
+  const it = idiomList(kind)[i]; if (!it) return;
+  const es = idiomDeckWord(kind, i);
+  const fr = kind === 'sup' ? (it.fr + ' → au superlatif') : it.fr;
+  const ej = it.ej || '';
+  if (wordInDeck(es)) { toast('Déjà dans tes cartes ✓'); return; }
+  addWordToAnki(es, fr, ej, 'Idiomático');
+  idiomState().seen[idiomKey(kind, i)] = 1; save();
+  idiomRerender();
+}
+/* --- une ligne de fiche réutilisable --- */
+function idiomRow(kind, i, es, fr, ej, ejfr, nota, tag) {
+  const seen = idiomIsSeen(kind, i), inDeck = wordInDeck(idiomDeckWord(kind, i));
+  return `
+  <div class="idrow ${seen ? 'seen' : ''}">
+    <button class="pspk sm" onclick="idiomSay('${kind}',${i})" aria-label="écouter">🔊</button>
+    <div class="idw" onclick="idiomMark('${kind}',${i})">
+      <div class="ides">${escapeHtml(es)}${tag ? ` <span class="pill warn">${escapeHtml(tag)}</span>` : ''}</div>
+      <div class="idfr">${escapeHtml(fr)}</div>
+      ${ej ? `<div class="idej">« ${escapeHtml(ej)} »${ejfr ? ` <span>— ${escapeHtml(ejfr)}</span>` : ''}</div>` : ''}
+      ${nota ? `<div class="idnota">💡 ${escapeHtml(nota)}</div>` : ''}
+    </div>
+    <button class="idadd ${inDeck ? 'in' : ''}" onclick="idiomAdd('${kind}',${i})" aria-label="ajouter aux cartes">${inDeck ? '✓' : '＋'}</button>
+  </div>`;
+}
+
+/* ---------- Accueil du module ---------- */
+function renderIdiomHome() {
+  window.scrollTo(0, 0);
+  IDIOM_VIEW.screen = 'home';
+  if (!idiomOn()) { app.innerHTML = '<div class="card"><h2>Module indisponible</h2><div class="sub">Recharge l\'app.</div></div>'; return; }
+  const t = idiomToday(), st = idiomState();
+  const e = IDIOM.expre[t.ei], m = IDIOM.modismos[t.mi], sp = IDIOM.sup.items[t.si];
+  const total = IDIOM.expre.length + IDIOM.modismos.length + IDIOM.sup.items.length + IDIOM.dim.items.length + IDIOM.aum.items.length;
+  app.innerHTML = `
+    <div class="card">
+      <h2>💬 Así se dice</h2>
+      <div class="sub">L'espagnol qui sonne <b style="color:var(--txt)">natif</b> : le « buenísimo », les diminutifs, les expressions de tous les jours, les modismos — et le drill des <b style="color:var(--txt)">calques du français</b>. Le miroir familier de l'« Espagnol soutenu ».</div>
+      <div class="row2 mt">
+        <div><div class="logo" style="font-size:24px;color:var(--purple)">${idiomSeenCount()}<span style="font-size:15px;color:var(--muted)"> / ${total}</span></div><div class="sub">fiches vues</div></div>
+        <div><div class="logo" style="font-size:24px;color:var(--accent)">${st.days || 0}</div><div class="sub">jours de « lo de hoy »</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="border-color:${idiomDayDone() ? 'var(--line)' : 'var(--accent)'}">
+      <h2 style="font-size:16px">📅 Lo de hoy ${idiomDayDone() ? '✅' : ''}</h2>
+      <div class="sub">Trois choses par jour, les mêmes toute la journée.</div>
+      <div class="mt">
+        ${idiomRow('expre', t.ei, e.es, e.fr, e.ej, e.ejfr, e.nota, e.cat)}
+        ${idiomRow('mod', t.mi, m.es, m.fr, m.ej, m.ejfr, 'Littéralement : ' + m.lit, 'Modismo')}
+        ${idiomRow('sup', t.si, sp.b + ' → ' + sp.s, sp.fr, '', '', sp.nota, IDIOM.sup.tipos[sp.tipo].lab)}
+      </div>
+      <button class="btn ${idiomDayDone() ? 'sec' : ''} mt" onclick="idiomDayMark()">${idiomDayDone() ? '✅ Déjà fait aujourd\'hui' : 'C\'est vu · +10 XP'}</button>
+    </div>
+
+    <div class="card" style="border-color:var(--accent)">
+      <h2 style="font-size:16px">🔝 ¡Buenísimo! · le superlatif en -ísimo</h2>
+      <div class="sub">La machine qui transforme <i>bueno</i> en <i>buenísimo</i>, <i>rico</i> en <i>riquísimo</i>, <i>fácil</i> en <i>facilísimo</i>. Tu écris la forme, l'app corrige <b style="color:var(--txt)">accents compris</b>.</div>
+      <button class="btn mt" onclick="startSupDrill()">S'entraîner · 5 mots</button>
+      <div class="row2 mt">
+        <button class="btn sec" onclick="renderSupReglas()">📖 Les règles</button>
+        <button class="btn sec" onclick="renderSupList()">Les ${IDIOM.sup.items.length} formes</button>
+      </div>
+      ${st.supN ? `<div class="sub mt" style="font-size:12px">Formes justes : <b style="color:var(--good)">${st.supOk}</b> / ${st.supN}</div>` : ''}
+    </div>
+
+    <div class="card" style="border-color:var(--bad)">
+      <h2 style="font-size:16px">🇫🇷 Trampas del francés · au réflexe</h2>
+      <div class="sub">Deux versions, une seule se dit. <i>Estoy de acuerdo</i> ou <i>soy de acuerdo</i> ? <i>Te echo de menos</i> ou <i>me faltas</i> ? ${IDIOM.calcos.length} pièges de francophone, en boucle, correction immédiate.</div>
+      <button class="btn mt" onclick="startReflex('calcos')">Démarrer le drill</button>
+      ${st.calN ? `<div class="sub mt" style="font-size:12px">Réussite : <b style="color:var(--good)">${Math.round(100 * st.calOk / st.calN)} %</b> sur ${st.calN} réponses</div>` : ''}
+    </div>
+
+    <div class="card" style="border-color:var(--purple)">
+      <h2 style="font-size:16px">🗨️ Expresiones del día a día</h2>
+      <div class="sub">${IDIOM.expre.length} expressions rangées par situation : les muletillas (<i>o sea</i>, <i>es que</i>), réagir, quedar, la maison, le boulot et le stage, WhatsApp, le bar, donner son avis. Avec l'audio et l'exemple.</div>
+      <button class="btn mt" onclick="renderIdiomExpre('${IDIOM.expre[0].cat}')">Ouvrir les fiches</button>
+      <button class="btn sec mt" onclick="startSituaciones()" style="font-size:13px;padding:9px">🎬 ¿Qué contestas? · ${IDIOM.situaciones.length} situations</button>
+    </div>
+
+    <div class="card" style="border-color:var(--blue)">
+      <h2 style="font-size:16px">🌶️ Modismos · les expressions imagées</h2>
+      <div class="sub">${IDIOM.modismos.length} frases hechas avec le sens littéral <b style="color:var(--txt)">et</b> le vrai sens : <i>ser pan comido</i>, <i>meter la pata</i>, <i>estar como una cabra</i>.</div>
+      <button class="btn mt" onclick="renderIdiomModismos()">Ouvrir les fiches</button>
+      <button class="btn sec mt" onclick="startModisQuiz()" style="font-size:13px;padding:9px">🎯 Quiz · 15 modismos</button>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:16px">🐣 Diminutivos · ce que le français ne sait pas faire</h2>
+      <div class="sub">« Un cafelito », « un momentito », « un poquito caro » : le diminutif n'est presque jamais une histoire de taille — c'est de l'affection, de la convivialité, ou une critique qu'on adoucit.</div>
+      <button class="btn sec mt" onclick="renderIdiomDim()">Ouvrir la fiche</button>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:16px">💥 Aumentativos · -azo, -ón, -ucho</h2>
+      <div class="sub">Un <i>portazo</i> (porte claquée), un <i>cochazo</i> (belle caisse), un <i>dormilón</i>, un <i>cuartucho</i>. Un suffixe, et le mot change de ton.</div>
+      <button class="btn sec mt" onclick="renderIdiomAum()">Ouvrir la fiche</button>
+      <button class="btn sec mt" onclick="startAumQuiz()" style="font-size:13px;padding:9px">🎯 Quiz · ¿qué significa?</button>
+    </div>
+
+    <button class="btn ghost mt" onclick="setView('home')">Retour</button>
+  `;
+}
+
+/* ---------- Superlatifs : règles ---------- */
+function renderSupReglas() {
+  window.scrollTo(0, 0);
+  IDIOM_VIEW.screen = 'reglas';
+  const reglas = IDIOM.sup.reglas.map(r => `
+    <div class="idregla">
+      <div class="rt">${escapeHtml(r.t)}</div>
+      <div class="rd">${escapeHtml(r.d)}</div>
+      ${r.ej ? `<div class="rej">${escapeHtml(r.ej)}</div>` : ''}
+    </div>`).join('');
+  const otros = IDIOM.sup.otros.map((o, i) => `
+    <div class="glrow"><b>${escapeHtml(o.es)}</b><span>${escapeHtml(o.fr)} · <i>${escapeHtml(o.ej)}</i>${o.nota ? `<br><span style="color:var(--dim)">${escapeHtml(o.nota)}</span>` : ''}</span></div>`).join('');
+  app.innerHTML = `
+    <div class="card">
+      <h2>🔝 El superlativo en -ísimo</h2>
+      <div class="sub">« Muy bueno » est correct. « Buenísimo » est espagnol.</div>
+    </div>
+    <div class="card">${reglas}</div>
+    <div class="card">
+      <h2 style="font-size:16px">Les autres façons d'intensifier</h2>
+      <div class="mt">${otros}</div>
+    </div>
+    <button class="btn mt" onclick="startSupDrill()">S'entraîner · 5 mots</button>
+    <button class="btn ghost mt" onclick="renderIdiomHome()">← Así se dice</button>
+  `;
+}
+/* ---------- Superlatifs : la liste complète ---------- */
+function renderSupList() {
+  window.scrollTo(0, 0);
+  IDIOM_VIEW.screen = 'suplist';
+  const groups = {};
+  IDIOM.sup.items.forEach((it, i) => { (groups[it.tipo] = groups[it.tipo] || []).push(i); });
+  const html = Object.keys(groups).map(tp => `
+    <div class="card">
+      <h2 style="font-size:16px">${escapeHtml(IDIOM.sup.tipos[tp].lab)}</h2>
+      <div class="sub">${escapeHtml(IDIOM.sup.tipos[tp].regla)}</div>
+      <div class="mt">${groups[tp].map(i => {
+        const it = IDIOM.sup.items[i];
+        const alt = (it.alt || []).length ? ' · aussi ' + it.alt.join(', ') : '';
+        return idiomRow('sup', i, it.b + ' → ' + it.s, it.fr + alt, '', '', it.nota, '');
+      }).join('')}</div>
+    </div>`).join('');
+  app.innerHTML = `
+    <div class="card"><h2>Les ${IDIOM.sup.items.length} superlatifs</h2>
+      <div class="sub">Touche 🔊 pour entendre, ＋ pour envoyer la forme dans tes cartes.</div></div>
+    ${html}
+    <button class="btn ghost mt" onclick="renderIdiomHome()">← Así se dice</button>
+  `;
+}
+/* ---------- Superlatifs : le drill (saisie corrigée) ---------- */
+let SUP = null;
+function supClass(u, it) {
+  const n = normConj(u), all = [it.s].concat(it.alt || []);
+  if (n && all.some(x => normConj(x) === n)) return 'ok';
+  if (n && all.some(x => deaccent(normConj(x)) === deaccent(n))) return 'accent';
+  return 'bad';
+}
+function startSupDrill() {
+  const idx = shuffle(IDIOM.sup.items.map((_, i) => i)).slice(0, 5);
+  SUP = { batch: idx, ans: {}, done: {}, cls: {} };
+  renderSupDrill();
+}
+function renderSupDrill() {
+  window.scrollTo(0, 0);
+  IDIOM_VIEW.screen = 'supdrill';
+  const cards = SUP.batch.map((si, k) => {
+    const it = IDIOM.sup.items[si], ty = IDIOM.sup.tipos[it.tipo], done = SUP.done[k], cls = SUP.cls[k];
+    const alt = (it.alt || []).length ? ` <span style="color:var(--dim)">(aussi : ${it.alt.join(', ')})</span>` : '';
+    let res = '';
+    if (done) res = `<div class="cjres ${cls}">${cls === 'ok' ? '✓ ' + it.s : cls === 'accent' ? '≈ accent → <b>' + it.s + '</b>' : '✗ → <b>' + it.s + '</b>'}${cls !== 'bad' ? '' : alt}</div>`;
+    return `
+      <div class="card cjcard ${done ? 'done' : ''}">
+        <div class="cjhead">
+          <div>
+            <div class="cjinf">${it.b} <span class="cjfr">— ${escapeHtml(it.fr)}</span></div>
+            <div class="cjtag"><span class="pill warn">${escapeHtml(ty.lab)}</span></div>
+          </div>
+          ${done ? `<button class="pspk sm" onclick="speak('${it.s}')">🔊</button>` : ''}
+        </div>
+        <div class="cjgrid">
+          <div class="cjfield">
+            <label>-ísimo</label>
+            <input id="sp-${k}" type="text" value="${escapeHtml(SUP.ans[k] || '')}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" lang="es" onfocus="conjFocus=this.id" placeholder="…">
+            ${res}
+          </div>
+        </div>
+        ${done ? `<div class="cjhint">${escapeHtml(ty.regla)}${it.nota ? ' · ' + escapeHtml(it.nota) : ''}</div>` : ''}
+        <button class="btn ${done ? 'sec' : ''} mt" onclick="checkSup(${k})">${done ? 'Re-corriger' : 'Corriger'}</button>
+      </div>`;
+  }).join('');
+  const nDone = Object.keys(SUP.done).length, nOk = Object.keys(SUP.cls).filter(k => SUP.cls[k] === 'ok').length;
+  app.innerHTML = `
+    <div class="accbar">
+      ${['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü'].map(c => `<button onclick="conjInsert('${c}')">${c}</button>`).join('')}
+    </div>
+    <div class="qmeta"><span>🔝 Superlativos</span><span>${nOk} / ${nDone} justes</span></div>
+    <div class="sub mb">Écris la forme en <b style="color:var(--txt)">-ísimo</b> (accords au masculin singulier, sauf adverbes).</div>
+    ${cards}
+    ${nDone >= 5 ? `<button class="btn mt" onclick="startSupDrill()">↻ Cinq autres mots</button>` : ''}
+    <button class="btn ghost mt" onclick="renderIdiomHome()">← Así se dice</button>
+  `;
+}
+function checkSup(k) {
+  const it = IDIOM.sup.items[SUP.batch[k]];
+  /* on récupère TOUTES les saisies avant de re-rendre : sinon corriger la 1re carte
+     effacerait ce qui est déjà tapé dans les autres. */
+  SUP.batch.forEach((_, j) => { const e = document.getElementById('sp-' + j); if (e) SUP.ans[j] = e.value; });
+  const val = SUP.ans[k] || '';
+  const was = SUP.done[k], cls = supClass(val, it);
+  SUP.done[k] = true; SUP.cls[k] = cls;
+  if (!was) {
+    const st = idiomState();
+    st.supN = (st.supN || 0) + 1; if (cls === 'ok') st.supOk = (st.supOk || 0) + 1;
+    st.seen[idiomKey('sup', SUP.batch[k])] = 1;
+    addXp(cls === 'ok' ? 5 : 2); markStudy(); touchDay(); save(); checkAchievements();
+    if (cls === 'bad') recordMistake({ kind: 'gram', q: it.b + ' (' + it.fr + ') → superlatif ?', opts: [it.s, it.b + 'ísimo', 'muy ' + it.b], correct: 0, expl: IDIOM.sup.tipos[it.tipo].regla + (it.nota ? ' ' + it.nota : ''), cat: 'Superlativo -ísimo' });
+  }
+  renderSupDrill();
+  const e2 = document.getElementById('sp-' + k); if (e2) e2.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  if (!was) toast(cls === 'ok' ? '✅ ¡Exacto!' : cls === 'accent' ? '≈ Presque : regarde l\'accent' : '✗ ' + it.s);
+}
+
+/* ---------- Expressions : fiches par situation ---------- */
+function idiomCats() { const c = []; IDIOM.expre.forEach(e => { if (!c.includes(e.cat)) c.push(e.cat); }); return c; }
+function renderIdiomExpre(cat) {
+  window.scrollTo(0, 0);
+  IDIOM_VIEW.screen = 'expre'; IDIOM_VIEW.cat = cat;
+  const chips = idiomCats().map(c => {
+    const n = IDIOM.expre.filter(e => e.cat === c).length;
+    return `<button class="segchip ${c === cat ? 'on' : ''}" onclick="renderIdiomExpre('${c}')">${c} <span class="cnt">${n}</span></button>`;
+  }).join('');
+  const rows = IDIOM.expre.map((e, i) => e.cat === cat ? idiomRow('expre', i, e.es, e.fr, e.ej, e.ejfr, e.nota, '') : '').join('');
+  const vus = IDIOM.expre.filter((e, i) => e.cat === cat && idiomIsSeen('expre', i)).length;
+  const tot = IDIOM.expre.filter(e => e.cat === cat).length;
+  app.innerHTML = `
+    <div class="card">
+      <h2>🗨️ Expresiones</h2>
+      <div class="sub">Touche une fiche pour la marquer vue · 🔊 pour l'entendre · ＋ pour l'ajouter à tes cartes.</div>
+      <div class="segwrap mt">${chips}</div>
+    </div>
+    <div class="sub mb" style="padding-left:4px">${cat} — ${vus}/${tot} vues</div>
+    ${rows}
+    <button class="btn sec mt" onclick="startSituaciones()">🎬 ¿Qué contestas? · mets-les en situation</button>
+    <button class="btn ghost mt" onclick="renderIdiomHome()">← Así se dice</button>
+  `;
+}
+/* ---------- Modismos ---------- */
+function renderIdiomModismos() {
+  window.scrollTo(0, 0);
+  IDIOM_VIEW.screen = 'mod';
+  const rows = IDIOM.modismos.map((m, i) => idiomRow('mod', i, m.es, m.fr, m.ej, m.ejfr, 'Littéralement : ' + m.lit, '')).join('');
+  app.innerHTML = `
+    <div class="card">
+      <h2>🌶️ Modismos</h2>
+      <div class="sub">Le sens <b style="color:var(--txt)">littéral</b> est donné exprès : c'est l'image qui fait retenir l'expression.</div>
+    </div>
+    ${rows}
+    <button class="btn mt" onclick="startModisQuiz()">🎯 Quiz · 15 modismos</button>
+    <button class="btn ghost mt" onclick="renderIdiomHome()">← Así se dice</button>
+  `;
+}
+/* ---------- Diminutifs ---------- */
+function renderIdiomDim() {
+  window.scrollTo(0, 0);
+  IDIOM_VIEW.screen = 'dim';
+  const reglas = IDIOM.dim.reglas.map(r => `
+    <div class="idregla"><div class="rt">${escapeHtml(r.t)}</div><div class="rd">${escapeHtml(r.d)}</div>${r.ej ? `<div class="rej">${escapeHtml(r.ej)}</div>` : ''}</div>`).join('');
+  const valores = IDIOM.dim.valores.map(v => `
+    <div class="idval">
+      <div class="vv">${escapeHtml(v.v)}</div>
+      <div class="ve">${escapeHtml(v.ej)} <span>— ${escapeHtml(v.fr)}</span></div>
+      ${v.nota ? `<div class="idnota">💡 ${escapeHtml(v.nota)}</div>` : ''}
+    </div>`).join('');
+  const rows = IDIOM.dim.items.map((d, i) => idiomRow('dim', i, d.b + ' → ' + d.d, d.fr, '', '', d.nota, '')).join('');
+  app.innerHTML = `
+    <div class="card">
+      <h2>🐣 Diminutivos</h2>
+      <div class="sub">En français, « petit » est un mot. En espagnol, c'est un <b style="color:var(--txt)">suffixe</b> — et il ne parle presque jamais de taille.</div>
+    </div>
+    <div class="card"><h2 style="font-size:16px">À quoi ça sert vraiment</h2><div class="mt">${valores}</div></div>
+    <div class="card"><h2 style="font-size:16px">Comment on le forme</h2><div class="mt">${reglas}</div></div>
+    <div class="card"><h2 style="font-size:16px">Les formes courantes</h2><div class="mt">${rows}</div></div>
+    <button class="btn ghost mt" onclick="renderIdiomHome()">← Así se dice</button>
+  `;
+}
+/* ---------- Augmentatifs ---------- */
+function renderIdiomAum() {
+  window.scrollTo(0, 0);
+  IDIOM_VIEW.screen = 'aum';
+  const reglas = IDIOM.aum.reglas.map(r => `
+    <div class="idregla"><div class="rt">${escapeHtml(r.t)}</div><div class="rd">${escapeHtml(r.d)}</div>${r.ej ? `<div class="rej">${escapeHtml(r.ej)}</div>` : ''}</div>`).join('');
+  const rows = IDIOM.aum.items.map((a, i) => idiomRow('aum', i, a.f, a.fr + ' (de ' + a.b + ')', a.ej, a.ejfr, '', a.suf)).join('');
+  app.innerHTML = `
+    <div class="card">
+      <h2>💥 Aumentativos y despectivos</h2>
+      <div class="sub">Le même suffixe peut dire « coup de » ou « énorme » : <i>un cabezazo</i> (coup de tête) et <i>un cochazo</i> (une sacrée bagnole).</div>
+    </div>
+    <div class="card"><h2 style="font-size:16px">Les suffixes</h2><div class="mt">${reglas}</div></div>
+    ${rows}
+    <button class="btn mt" onclick="startAumQuiz()">🎯 Quiz · ¿qué significa?</button>
+    <button class="btn ghost mt" onclick="renderIdiomHome()">← Así se dice</button>
+  `;
+}
+/* ---------- Quiz : modismos, aumentativos, situations ---------- */
+function startModisQuiz() {
+  const pool = IDIOM.modismos;
+  const items = shuffle(pool.slice()).slice(0, 15).map(m => {
+    const others = shuffle(pool.filter(x => x.es !== m.es)).slice(0, 3).map(x => x.fr);
+    const r = shufOpts([m.fr].concat(others), 0);
+    return ['¿Qué significa « ' + m.es + ' »?', r.opts, r.correct, 'Littéralement : ' + m.lit + '. Ex. : « ' + m.ej + ' » — ' + m.ejfr];
+  });
+  startBonusQuiz({ title: 'Modismos', cat: 'Modismos', items, restart: 'startModisQuiz()', back: 'renderIdiomHome()', backLabel: '← Así se dice' });
+}
+function startAumQuiz() {
+  const pool = IDIOM.aum.items;
+  const items = shuffle(pool.slice()).slice(0, 12).map(a => {
+    const others = shuffle(pool.filter(x => x.f !== a.f)).slice(0, 3).map(x => x.fr);
+    const r = shufOpts([a.fr].concat(others), 0);
+    return ['¿Qué es « ' + a.f + ' »?', r.opts, r.correct, 'De « ' + a.b + ' » + ' + a.suf + '. Ex. : « ' + a.ej + ' » — ' + a.ejfr];
+  });
+  startBonusQuiz({ title: 'Aumentativos', cat: 'Aumentativos', items, restart: 'startAumQuiz()', back: 'renderIdiomHome()', backLabel: '← Así se dice' });
+}
+function startSituaciones() {
+  const items = shuffle(IDIOM.situaciones.slice()).map(s => {
+    const r = shufOpts(s.opts, s.a);
+    return ['<span class="idctx">' + escapeHtml(s.ctx) + '</span>' + escapeHtml(s.q), r.opts, r.correct, s.expl];
+  });
+  startBonusQuiz({ title: '¿Qué contestas?', cat: 'Situaciones', items, restart: 'startSituaciones()', back: 'renderIdiomHome()', backLabel: '← Así se dice' });
 }
 
 /* ---------- Boot ---------- */

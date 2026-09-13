@@ -375,6 +375,33 @@ details.dlsrc .dltext{max-height:300px;overflow-y:auto}
 .dlbar{height:8px;border-radius:99px;background:var(--bg2);overflow:hidden}
 .dlbar i{display:block;height:100%;border-radius:99px}
 .dlsc{font-size:13px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+
+/* ---------- Idiomático · Así se dice ---------- */
+.idrow{display:flex;align-items:flex-start;gap:10px;background:var(--card2);border:1px solid var(--line);
+  border-radius:13px;padding:10px 12px;margin-bottom:8px}
+.idrow.seen{border-color:rgba(46,204,113,.45)}
+.idrow .pspk.sm{margin-top:2px}
+.idw{flex:1;min-width:0;cursor:pointer}
+.ides{font-size:16px;font-weight:800;letter-spacing:-.01em;line-height:1.3}
+.idrow.seen .ides::after{content:" ✓";color:var(--good);font-size:12px;vertical-align:top}
+.idfr{font-size:13.5px;color:var(--muted);margin-top:1px}
+.idej{font-size:13.5px;color:var(--txt);margin-top:6px;font-style:italic;line-height:1.45}
+.idej span{color:var(--muted);font-style:normal}
+.idnota{font-size:12.5px;color:var(--accent);margin-top:6px;line-height:1.4}
+.idadd{background:var(--bg2);border:1px solid var(--line);border-radius:10px;color:var(--muted);
+  width:34px;height:34px;font-size:16px;font-weight:800;flex:0 0 auto}
+.idadd.in{color:var(--good);border-color:rgba(46,204,113,.45)}
+.idregla{padding:10px 0;border-bottom:1px solid var(--line)}
+.idregla:last-child{border-bottom:none}
+.idregla .rt{font-weight:800;font-size:14.5px;line-height:1.35}
+.idregla .rd{font-size:13.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+.idregla .rej{font-size:13.5px;color:var(--accent);margin-top:4px}
+.idval{padding:10px 0;border-bottom:1px solid var(--line)}
+.idval:last-child{border-bottom:none}
+.idval .vv{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--purple)}
+.idval .ve{font-size:15px;font-weight:700;margin-top:3px;line-height:1.4}
+.idval .ve span{color:var(--muted);font-weight:600;font-size:13.5px}
+.idctx{display:block;font-size:13px;color:var(--muted);font-weight:600;margin-bottom:8px;line-height:1.4}
 </style>
 </head>
 <body>
@@ -432,6 +459,7 @@ details.dlsrc .dltext{max-height:300px;overflow-y:auto}
 <script src="data-bonus.js?v=3"></script>
 <script src="data-reflex.js?v=1"></script>
 <script src="data-examen-c1.js?v=1"></script>
-<script src="app.js?v=28"></script>
+<script src="data-idiomatico.js?v=1"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>
