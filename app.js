@@ -2800,9 +2800,17 @@ function renderConjHome() {
 function checkConj(k) {
   resetDailyIfNeeded();
   const today = conjToday(), ch = today[k], v = CONJUG[ch.vi], forms = v.t[ch.tk], st = conjState();
-  const ans = [];
-  for (let p = 0; p < 6; p++) { const el = document.getElementById('cj-' + k + '-' + p); ans[p] = el ? el.value : ''; }
-  st.ans[k] = ans;
+  /* ⚠️ ON RÉCOLTE LES TROIS VERBES AVANT DE RE-RENDRE.
+     Bug mesuré le 2026-09-23 : il tape les 18 formes, valide le 1er verbe,
+     et les 12 saisies des deux autres disparaissent — renderConjHome()
+     réaffiche st.ans, qui ne contenait que le verbe validé. Dans le pilier
+     qu'il doit faire TOUS LES JOURS. (checkSup avait déjà le bon réflexe.) */
+  today.forEach((_, j) => {
+    const a = [];
+    for (let p = 0; p < 6; p++) { const e = document.getElementById('cj-' + j + '-' + p); a[p] = e ? e.value : (st.ans[j] ? st.ans[j][p] : '') || ''; }
+    st.ans[j] = a;
+  });
+  const ans = st.ans[k];
   let score = 0;
   for (let p = 0; p < 6; p++) if (normConj(ans[p]) === normConj(forms[p])) score++;
   st.score[k] = score;
@@ -3037,9 +3045,14 @@ function renderStemDrill() {
 }
 function checkStem(k) {
   const v = STEMV[AF_STEM.batch[k]];
-  const ans = [];
-  for (let p = 0; p < 6; p++) { const el = document.getElementById('sm-' + k + '-' + p); ans[p] = el ? el.value : ''; }
-  AF_STEM.ans[k] = ans;
+  /* même récolte globale que checkConj : valider une carte ne doit pas
+     effacer ce qui est tapé dans les autres. */
+  AF_STEM.batch.forEach((_, j) => {
+    const a = [];
+    for (let p = 0; p < 6; p++) { const e = document.getElementById('sm-' + j + '-' + p); a[p] = e ? e.value : (AF_STEM.ans[j] ? AF_STEM.ans[j][p] : '') || ''; }
+    AF_STEM.ans[j] = a;
+  });
+  const ans = AF_STEM.ans[k];
   let score = 0;
   for (let p = 0; p < 6; p++) if (normConj(ans[p]) === normConj(v.pres[p])) score++;
   const wasDone = AF_STEM.done[k];
