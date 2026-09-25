@@ -104,15 +104,57 @@ function transferLink() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, () => prompt('Copie ce lien :', url));
   else prompt('Copie ce lien :', url);
 }
+/* ⚠️ Déclarés AVANT `let S = load()` : load() écrit dans LOAD_RAW, et une
+   variable `let` déclarée plus bas serait en zone morte — l'exception
+   remonterait, `S` ne serait jamais assignée, et l'app entière serait morte
+   au chargement. Vérifié en reproduisant le cas. */
+var LOAD_RAW = null, SAVE_KO = 0;
 let S = load();
 applyRegime();                 // aligne les quotas quotidiens sur le régime choisi
+/* ⚠️ 2026-09-25 — après une perte de progression.
+   L'ancien load() faisait : catch → repartir sur DEFAULT. Autrement dit,
+   si la sauvegarde devenait illisible (stockage plein, écriture coupée),
+   l'app rendait un profil VIERGE sans un mot — et le premier save() qui
+   suivait écrasait définitivement la sauvegarde qu'on n'avait pas su lire.
+   Désormais : on distingue « vraiment vide » de « illisible », on CONSERVE
+   la donnée brute, et on interdit toute écriture tant qu'elle n'est pas
+   traitée. Une app qui ne sait pas lire doit se taire, pas recommencer. */
 function load() {
+  let raw = null;
+  try { raw = localStorage.getItem('tcumbre'); } catch (e) { }
+  if (raw == null || raw === '' || raw === '{}') return Object.assign({}, DEFAULT);
   try {
-    const raw = JSON.parse(localStorage.getItem('tcumbre') || '{}');
-    return Object.assign({}, DEFAULT, raw);
-  } catch (e) { return Object.assign({}, DEFAULT); }
+    return Object.assign({}, DEFAULT, JSON.parse(raw));
+  } catch (e) {
+    LOAD_RAW = raw;                                   // on ne la perd pas
+    return Object.assign({}, DEFAULT, { _illisible: true });
+  }
 }
-function save() { localStorage.setItem('tcumbre', JSON.stringify(S)); }
+/* save() n'avait AUCUNE protection : localStorage est partagé par la vingtaine
+   d'apps de la même origine, et setItem LÈVE quand le quota est atteint —
+   l'exception interrompait alors la fonction appelante, en silence. */
+function save() {
+  if (S && S._illisible) return false;                // on n'écrase jamais l'illisible
+  try { localStorage.setItem('tcumbre', JSON.stringify(S)); SAVE_KO = 0; return true; }
+  catch (e) {
+    SAVE_KO++;
+    if (SAVE_KO === 1 || SAVE_KO % 20 === 0) {
+      try { toast('⚠️ Sauvegarde impossible (stockage plein) — exporte avec LE COFFRE'); } catch (_) { }
+      try { console.warn('CUMBRE : écriture localStorage refusée', e && e.name); } catch (_) { }
+    }
+    return false;
+  }
+}
+function saveHealthy() { return SAVE_KO === 0 && !(S && S._illisible); }
+/* Récupérer la sauvegarde illisible telle quelle, pour ne rien perdre. */
+function descargarBruto() {
+  const blob = new Blob([LOAD_RAW || ''], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'cumbre-sauvegarde-illisible-' + todayStr() + '.json';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
 
 /* ---------- Gestion jour / streak ---------- */
 function touchDay() {
@@ -470,6 +512,26 @@ function lecAnswer(qi,oi){
 }
 
 function render() {
+  /* Sauvegarde illisible : on ne sert PAS un profil vierge comme si de rien
+     n'était — c'est exactement ce qui a fait croire à une remise à zéro.
+     Écran bloquant, donnée brute conservée et téléchargeable. */
+  if (S && S._illisible) {
+    app.innerHTML = `
+      <div class="card">
+        <h2>⚠️ Je n'arrive pas à lire ta sauvegarde</h2>
+        <div class="sub">Ta progression n'est pas perdue : elle est là, mais illisible (stockage plein, ou écriture interrompue).
+        <b>Rien n'a été effacé et rien ne sera écrit</b> tant que tu es sur cet écran — l'app refuse d'écrire par-dessus.</div>
+      </div>
+      <div class="card mt">
+        <h2 style="font-size:15px">Fais ça dans cet ordre</h2>
+        <div class="sub">1. Télécharge la donnée brute ci-dessous et garde le fichier.
+        <br>2. Libère de la place : ouvre LE COFFRE et exporte tes autres apps.
+        <br>3. Envoie-moi le fichier : je peux souvent en récupérer la plus grande partie.</div>
+        <button class="btn mt" onclick="descargarBruto()">⬇︎ Télécharger la sauvegarde brute</button>
+        <button class="btn sec mt" onclick="location.href='../pointage/coffre.html'">🔐 Ouvrir LE COFFRE</button>
+      </div>`;
+    return;
+  }
   refreshHeader();
   document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
   window.scrollTo(0, 0);
@@ -1336,7 +1398,114 @@ function renderAnkiHome() {
     </div>
     <button class="btn sec" onclick="renderSrsDiag()">📊 Diagnostic — l'algo est-il efficace ?</button>
     <button class="btn ghost" onclick="transferLink()">📦 Transférer ma progression (lien à ouvrir ailleurs)</button>
+    <button class="btn ghost" onclick="renderRestore()">🩹 J'ai perdu ma progression — la remettre</button>
     ${learnedCount() > 0 ? `<button class="btn ghost" onclick="resetCardsConfirm()">Réinitialiser la progression des cartes</button>` : ''}
+  `;
+}
+
+
+/* ============================================================
+   REMETTRE MA PROGRESSION — reconstruction, pas récupération
+   2026-09-25. Il a perdu sa progression et connaissait « environ bien »
+   les mots d'avant les lots 10 et 11. On ne peut pas ressusciter des
+   données qu'on n'a plus ; on peut rendre au deck l'état que ses
+   connaissances justifient, et laisser l'algorithme re-tester.
+   RESTORE_N = taille du deck AVANT le lot 10 : les mots qu'il avait vus.
+   ============================================================ */
+const RESTORE_N = 1252;
+/* Les fenêtres sont larges EXPRÈS : 1 252 cartes réparties sur 12 jours,
+   c'est 100 révisions par jour — une charge qui le ferait décrocher. Sur
+   35 jours, c'est une trentaine, soutenable. FSRS corrigera de toute façon
+   dès la première réponse : ce qu'il sait repartira loin, le reste reviendra. */
+const RESTORE_NIV = {
+  bien:  { lab: 'Je les connaissais bien',   min: 21, max: 60, reps: 3, xp: 3 },
+  moyen: { lab: 'Environ bien',              min: 10, max: 45, reps: 2, xp: 3 },
+  vague: { lab: 'Vaguement, à revoir vite',  min: 4,  max: 25, reps: 1, xp: 2 },
+};
+function restoreCount() {
+  let n = 0;
+  for (let i = 0; i < Math.min(RESTORE_N, VOCAB.length); i++) {
+    const c = S.cards[i];
+    if (!c || !c.introduced) n++;
+  }
+  return n;
+}
+function restoreKnown(niv) {
+  const N = RESTORE_NIV[niv] || RESTORE_NIV.moyen;
+  const now = Date.now();
+  let posees = 0, gardees = 0;
+  for (let i = 0; i < Math.min(RESTORE_N, VOCAB.length); i++) {
+    const c = S.cards[i];
+    const iv = N.min + Math.floor(Math.random() * (N.max - N.min + 1));
+    /* on ne DÉGRADE jamais une carte déjà travaillée depuis la perte */
+    if (c && c.introduced && (c.interval || 0) >= iv) { gardees++; continue; }
+    S.cards[i] = {
+      ease: 2.5, interval: iv, reps: N.reps, lapses: 0, introduced: true,
+      /* échéances étalées sur la fenêtre : pas 1 252 révisions le même jour */
+      due: now + iv * DAY,
+    };
+    posees++;
+  }
+  /* XP RECALCULÉE, pas récupérée — et dite comme telle à l'écran. */
+  S.xp = Math.max(S.xp || 0, posees * N.xp);
+  S.restoredAt = todayStr();
+  S.restoredN = posees;
+  const ok = save();
+  renderRestoreDone(posees, gardees, N, ok);
+}
+function renderRestore() {
+  const reste = restoreCount();
+  app.innerHTML = `
+    <div class="card">
+      <h2>🩹 Remettre ma progression</h2>
+      <div class="sub">Ce n'est pas une récupération : tes données perdues ne sont pas ici. C'est une <b>reconstruction</b> — on redonne aux ${RESTORE_N} mots que tu avais déjà vus l'état que tes connaissances justifient, et l'algorithme les re-teste normalement.</div>
+    </div>
+
+    <div class="card mt">
+      <h2 style="font-size:15px">Avant de faire ça — la vraie récupération d'abord</h2>
+      <div class="sub">Si ta progression existe encore ailleurs, elle vaut infiniment mieux que ce que je vais reconstruire :
+      <br>· sur iPhone, <b>l'app de l'écran d'accueil et Safari ont deux stockages séparés</b> — ouvre l'app par l'autre chemin et regarde ;
+      <br>· si tu as déjà fait un export du <b>COFFRE</b>, le fichier <code>.json</code> est dans tes téléchargements.
+      <br>Dans les deux cas, importe-la : elle écrasera cette reconstruction, et tant mieux.</div>
+    </div>
+
+    <div class="card mt">
+      <h2 style="font-size:15px">Les mots concernés</h2>
+      <div class="sub"><b>${RESTORE_N}</b> mots — ceux du deck avant les deux lots ajoutés le 24 septembre. Les <b>${Math.max(0, VOCAB.length - RESTORE_N)}</b> mots récents restent neufs, tu ne les as jamais vus.
+      <br>Actuellement <b>${reste}</b> d'entre eux sont à l'état « nouveau ».</div>
+    </div>
+
+    <div class="card mt">
+      <h2 style="font-size:15px">Tu les connaissais à quel point ?</h2>
+      <div class="sub">Ça règle l'échéance de la première révision. En cas de doute, prends celui du milieu : si tu connais, tu répondras « Facile » et la carte repartira loin ; sinon elle reviendra vite. <b>L'algorithme corrigera tout seul.</b></div>
+      ${Object.keys(RESTORE_NIV).map(k => {
+        const N = RESTORE_NIV[k];
+        const parJour = Math.round(RESTORE_N / (N.max - N.min + 1));
+        return `<button class="btn ${k === 'moyen' ? '' : 'sec'} mt" onclick="restoreKnown('${k}')">${N.lab}<br><span style="font-size:12px;opacity:.75">révisions étalées sur ${N.min} à ${N.max} jours — environ <b>${parJour} cartes par jour</b></span></button>`;
+      }).join('')}
+    </div>
+
+    <div class="card mt">
+      <h2 style="font-size:15px">Ce que je ne reconstruis pas</h2>
+      <div class="sub">Ta <b>série de jours</b> et ton <b>historique</b> ne peuvent pas être reconstitués honnêtement : je les laisse à zéro plutôt que d'inventer un chiffre. L'XP est <b>recalculée</b> à partir des cartes rendues — c'est un ordre de grandeur, pas ton vrai total.</div>
+    </div>
+    <button class="btn ghost mt" onclick="setView('anki')">Retour</button>
+  `;
+}
+function renderRestoreDone(posees, gardees, N, ok) {
+  app.innerHTML = `
+    <div class="card">
+      <h2>✅ ${posees} mots remis</h2>
+      <div class="sub">Reconstruits au niveau « ${N.lab.toLowerCase()} » : premières révisions étalées entre ${N.min} et ${N.max} jours, soit environ <b>${Math.round(posees / (N.max - N.min + 1))} cartes par jour</b> — et non ${posees} d'un coup.
+      ${gardees ? `<br>${gardees} carte(s) déjà mieux travaillées depuis la perte ont été laissées telles quelles.` : ''}
+      ${ok ? '' : '<br><b style="color:#d33">⚠️ La sauvegarde a échoué (stockage plein). Libère de la place et recommence, sinon ceci sera perdu au prochain chargement.</b>'}</div>
+    </div>
+    <div class="card mt">
+      <h2 style="font-size:15px">Fais ça maintenant, une fois</h2>
+      <div class="sub">Ouvre <b>LE COFFRE</b> et exporte. C'est un fichier sur ton téléphone — c'est le seul filet qui ne dépend ni du navigateur, ni du quota, ni de moi.</div>
+      <button class="btn mt" onclick="location.href='../pointage/coffre.html'">🔐 Ouvrir LE COFFRE</button>
+    </div>
+    <button class="btn sec mt" onclick="setView('anki')">Aller réviser</button>
   `;
 }
 
