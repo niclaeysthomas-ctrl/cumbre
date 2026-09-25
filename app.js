@@ -669,7 +669,7 @@ function renderHome() {
   const scoreCard = S.estScore != null ? `
     <button class="tile" onclick="setView('exam')">
       <div class="ic e">📈</div>
-      <div class="body"><div class="t">Niveau estimé</div><div class="d">${scoreBand(S.estScore)} · ${S.history.length} test(s) passé(s)</div></div>
+      <div class="body"><div class="t">Niveau estimé</div><div class="d">${scoreBand(S.estScore)} · ${S.levelDeclared && !S.history.length ? 'déclaré, non testé' : S.history.length + ' test(s) passé(s)'}</div></div>
       <div class="badge">${cefrLabel(S.estScore)}</div>
     </button>` : '';
 
@@ -1453,6 +1453,26 @@ function restoreKnown(niv) {
   const ok = save();
   renderRestoreDone(posees, gardees, N, ok);
 }
+/* Remettre le NIVEAU. Je ne peux pas inventer un score : le test le mesure,
+   moi non. Donc deux chemins, et le second est marqué comme DÉCLARÉ — la
+   carte « Niveau estimé » dira « déclaré, non testé », et l'historique des
+   tests reste vide parce qu'aucun test n'a eu lieu. */
+const CEFR_BANDS = [
+  { k: 'C1', sc: 88, lab: 'C1 — objectif atteint' },
+  { k: 'B2', sc: 72, lab: 'B2 — avancé' },
+  { k: 'B1', sc: 55, lab: 'B1 — intermédiaire' },
+  { k: 'A2', sc: 38, lab: 'A2 — élémentaire' },
+];
+function restoreLevel(k) {
+  const b = CEFR_BANDS.find(x => x.k === k); if (!b) return;
+  S.estScore = b.sc;                       // le PLANCHER de la bande : prudent, pas flatteur
+  S.level = levelFromScore(b.sc);          // bande de difficulté des exercices
+  S.placementDone = true;                  // la bannière cesse de te relancer
+  S.levelDeclared = true;                  // …mais on n'a pas passé de test, et on le dit
+  const ok = save();
+  toast(ok ? '✔︎ Niveau remis à ' + b.k : '⚠️ Sauvegarde impossible');
+  renderRestore();
+}
 function renderRestore() {
   const reste = restoreCount();
   app.innerHTML = `
@@ -1483,6 +1503,19 @@ function renderRestore() {
         const parJour = Math.round(RESTORE_N / (N.max - N.min + 1));
         return `<button class="btn ${k === 'moyen' ? '' : 'sec'} mt" onclick="restoreKnown('${k}')">${N.lab}<br><span style="font-size:12px;opacity:.75">révisions étalées sur ${N.min} à ${N.max} jours — environ <b>${parJour} cartes par jour</b></span></button>`;
       }).join('')}
+    </div>
+
+    <div class="card mt">
+      <h2 style="font-size:15px">Ton niveau</h2>
+      <div class="sub">Trois choses s'appellent « niveau » ici, et une seule est vraiment perdue :
+      <br>· le <b>Niv.</b> de l'en-tête se calcule depuis l'XP — il revient tout seul avec les cartes ;
+      <br>· la <b>bande de difficulté</b> des exercices se déduit du CEFR ;
+      <br>· ton <b>CEFR estimé</b>, lui, ne peut venir que d'un test.
+      ${S.estScore != null ? `<br><br>Actuellement : <b>${cefrLabel(S.estScore)}</b> (${S.estScore}/100)${S.levelDeclared ? ' — <b>déclaré</b>, non testé' : ''}.` : ''}</div>
+      <button class="btn mt" onclick="startExam('placement')">🎯 Repasser le test — c'est la seule mesure honnête</button>
+      <div class="sub mt">Une dizaine de minutes, et il recalcule tout correctement : score, CEFR, bande de difficulté.</div>
+      <div class="sub mt"><b>Ou remets-le à la main</b> si tu sais où tu en étais. Je prends le <b>plancher</b> de la bande que tu choisis — mieux vaut sous-estimer, les exercices s'ajusteront vers le haut. La carte affichera « déclaré, non testé » : aucun test ne sera inventé.</div>
+      ${CEFR_BANDS.map(b => `<button class="btn sec mt" onclick="restoreLevel('${b.k}')">${b.lab}</button>`).join('')}
     </div>
 
     <div class="card mt">
