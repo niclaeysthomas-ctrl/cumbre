@@ -1,5 +1,5 @@
 /* CUMBRE — service worker : cache offline (app shell) */
-const CACHE = 'cumbre-v36-niveau';
+const CACHE = 'cumbre-v37-volume100';
 const ASSETS = [
   'index.html',
   'app.js?v=32',

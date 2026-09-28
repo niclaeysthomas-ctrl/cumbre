@@ -54,10 +54,10 @@ let GOAL_CARDS = 20, GOAL_TRANS = 5; const GOAL_CONJ = 3;
 /* Régimes d'intensité : pilotent le VOLUME quotidien (cartes à réviser, phrases à
    traduire, nouvelles cartes/jour). La conjugaison reste à 3 verbes (module à taille fixe). */
 const REGIMES = {
-  tranquilo: { emoji: '🌱', name: 'Tranquilo', cards: 15, trans: 5,  neu: 10, desc: "Jours chargés : l'essentiel, sans se noyer." },
-  rapido:    { emoji: '🔥', name: 'Rápido',    cards: 30, trans: 8,  neu: 22, desc: "Le bon rythme pour avancer vite et tenir dans la durée." },
-  intensivo: { emoji: '⚡', name: 'Intensivo', cards: 50, trans: 12, neu: 30, desc: "Gros volume quotidien. Le C1 sans traîner." },
-  atope:     { emoji: '🚀', name: 'A tope',    cards: 80, trans: 18, neu: 40, desc: "Sprint. Soutenable quelques semaines, pas toute l'année." }
+  tranquilo: { emoji: '🌱', name: 'Tranquilo', cards: 100, trans: 6,  neu: 100, wave: 25, desc: "Le plancher : 100 cartes par jour, même les jours pris." },
+  rapido:    { emoji: '🔥', name: 'Rápido',    cards: 150, trans: 10, neu: 150, wave: 30, desc: "Le bon rythme pour avancer vite et tenir dans la durée." },
+  intensivo: { emoji: '⚡', name: 'Intensivo', cards: 220, trans: 14, neu: 220, wave: 40, desc: "Gros volume quotidien. Le C1 sans traîner." },
+  atope:     { emoji: '🚀', name: 'A tope',    cards: 320, trans: 20, neu: 320, wave: 50, desc: "Sprint. Soutenable quelques semaines, pas toute l'année." }
 };
 const REGIME_ORDER = ['tranquilo', 'rapido', 'intensivo', 'atope'];
 const DEFAULT_REGIME = 'rapido';
@@ -69,9 +69,22 @@ function resetDailyIfNeeded() {
 }
 function bumpDaily(field, n) { resetDailyIfNeeded(); S.daily[field] = (S.daily[field] || 0) + (n || 1); save(); checkDailyDone(); }
 function markStudy() { resetDailyIfNeeded(); S.daily.study = 1; save(); checkDailyDone(); }
+/* Objectif « cartes » du jour = la cible du régime, MAIS jamais plus que ce qui
+   existe réellement aujourd'hui (dues + nouvelles encore disponibles + déjà
+   faites). Sans ce garde-fou, monter le plancher à 100 rendrait la journée
+   invalidable les jours creux — et casserait la série pour rien.
+   La somme « fait + disponible » ne bouge pas au fil de la journée : une carte
+   revue quitte les dues et entre dans les faites. */
+function goalCardsToday() {
+  resetDailyIfNeeded();
+  const cible = currentRegime().cards;
+  const dispo = dueCards().length + newAvailable(false).length + (S.daily.cards || 0);
+  return Math.min(cible, dispo);          /* 0 = plus rien à réviser aujourd'hui */
+}
 function dailyProgress() {
   resetDailyIfNeeded();
-  const c = Math.min(1, S.daily.cards / GOAL_CARDS);
+  const g = goalCardsToday();
+  const c = g <= 0 ? 1 : Math.min(1, S.daily.cards / g);   /* rien de dû = objectif rempli */
   const t = Math.min(1, S.daily.trans / GOAL_TRANS);
   const s = S.daily.study ? 1 : 0;
   const p = S.daily.pron ? 1 : 0;
@@ -229,8 +242,17 @@ const BUILTIN_N = window.VOCAB.length;
 })();
 if (S.userVocab && S.userVocab.length) window.VOCAB = window.VOCAB.concat(S.userVocab);
 const VOCAB_ORDER = seededOrder(VOCAB.length, 990);
+/* Les nouvelles cartes COMPLÈTENT la journée jusqu'à la cible du régime, au lieu
+   d'être plafonnées à un nombre fixe. Une journée à 120 révisions dues n'ajoute
+   rien de neuf ; une journée à 20 dues en ajoute 80 pour atteindre 100. On sert
+   donc toujours le volume demandé, sans fabriquer de dette de révision inutile.
+   `neu` reste un plafond dur de matière neuve par jour. */
 function newAvailable(unlimited) {
-  const cap = unlimited ? Infinity : Math.max(0, NEW_PER_DAY - S.newToday);
+  const r = currentRegime();
+  resetDailyIfNeeded();
+  const manque = Math.max(0, r.cards - dueCards().length - (S.daily.cards || 0));
+  const cap = unlimited ? Infinity
+    : Math.min(Math.max(0, (r.neu || NEW_PER_DAY) - S.newToday), manque);
   const out = [];
   for (const i of VOCAB_ORDER) {
     if (out.length >= cap) break;
@@ -243,13 +265,15 @@ function totalUnlearned() {
   for (const i of VOCAB_ORDER) if (!S.cards[i] || !S.cards[i].introduced) n++;
   return n;
 }
-const WAVE = 25; // taille d'une vague en mode sans plafond
+/* Taille d'une vague en mode sans plafond : elle suit l'intensité, sinon il faut
+   enchaîner quatre vagues pour atteindre le volume du jour. */
+function waveSize(){ return currentRegime().wave || 25; }
 function buildQueue(unlimited) {
   // révisions d'abord, puis nouvelles cartes.
   // Sans plafond quotidien : on sert par VAGUES de 25 — une file de 300 cartes
   // affichée d'un coup décourage et ne fait rien apprendre de plus.
   const q = dueCards().concat(newAvailable(unlimited));
-  return unlimited ? q.slice(0, WAVE) : q;
+  return unlimited ? q.slice(0, waveSize()) : q;
 }
 // File d'un thème précis (révisions dues + toutes les nouvelles du thème, sans plafond)
 function buildThemeQueue(theme) {
@@ -681,7 +705,10 @@ function renderHome() {
       ${ringSvg(dp.pct)}
       <div style="flex:1;min-width:0">
         <h2 style="font-size:16px;margin-bottom:6px">Objectif du jour ${dp.done ? '🏆' : ''}</h2>
-        ${goalLine(dp.c >= 1, 'Réviser des cartes', `${Math.min(S.daily.cards, GOAL_CARDS)}/${GOAL_CARDS}`)}
+        ${(() => { const g = goalCardsToday();
+          if (g <= 0) return goalLine(true, 'Réviser des cartes', 'rien de dû ✓');
+          return goalLine(dp.c >= 1, 'Réviser des cartes', `${Math.min(S.daily.cards, g)}/${g}`
+            + (g < currentRegime().cards ? ` <span style="color:var(--muted);font-size:11px">(tout ce qui est dû)</span>` : '')); })()}
         ${goalLine(dp.j >= 1, 'Conjuguer 3 verbes', `${Math.min(S.daily.conj || 0, GOAL_CONJ)}/${GOAL_CONJ}`)}
         ${goalLine(dp.p >= 1, 'Prononciation (R · ñ)', dp.p ? 'fait' : '0/1')}
         ${goalLine(dp.t >= 1, 'Traduire des phrases', `${Math.min(S.daily.trans, GOAL_TRANS)}/${GOAL_TRANS}`)}
@@ -1354,7 +1381,7 @@ function renderAnkiHome() {
       <div class="sub">Règle ton volume du jour. Monte-le quand tu veux tout donner, baisse-le les jours pris — c'est toi qui tiens le curseur.</div>
       <div class="mt" style="display:flex;flex-wrap:wrap;gap:8px">${regChips}</div>
       <div class="sub mt"><b style="color:var(--txt)">${rg.emoji} ${rg.name}</b> — ${rg.desc}</div>
-      <div class="sub mt" style="color:var(--muted)">≈ <b style="color:var(--txt)">${rg.cards}</b> cartes · <b style="color:var(--txt)">${rg.trans}</b> traductions · <b style="color:var(--txt)">${GOAL_CONJ}</b> verbes · jusqu'à <b style="color:var(--txt)">${rg.neu}</b> nouveaux mots/jour</div>
+      <div class="sub mt" style="color:var(--muted)"><b style="color:var(--txt)">${rg.cards}</b> cartes/jour · <b style="color:var(--txt)">${rg.trans}</b> traductions · <b style="color:var(--txt)">${GOAL_CONJ}</b> verbes · vagues de <b style="color:var(--txt)">${rg.wave}</b></div>
       ${(S.regime === 'atope' || S.regime === 'intensivo') ? `<div class="pill warn mt">Gros volume : chaque nouveau mot revient en révision quelques jours plus tard. Tiens le rythme, ou redescends d'un cran sans culpabiliser.</div>` : ''}
     </div>
     <div class="card">
@@ -1368,25 +1395,25 @@ function renderAnkiHome() {
 
     <div class="card">
       <h2 style="font-size:16px">Session du jour</h2>
-      <div class="sub">Rythme régulier : révisions dues + ${NEW_PER_DAY} nouvelles cartes max. Le plus efficace pour la mémoire long terme.</div>
+      <div class="sub">Toutes tes révisions dues, <b style="color:var(--txt)">complétées par des mots neufs jusqu'à ${currentRegime().cards} cartes</b>. Beaucoup de révisions aujourd'hui ? L'app n'ajoute rien de neuf. Peu de révisions ? Elle remplit. Le volume ne descend jamais sous ta cible tant qu'il reste des mots à voir.</div>
       <button class="btn mt" onclick="startReview(false)" ${total === 0 ? 'disabled' : ''}>
         ${total === 0 ? 'Rien à réviser pour aujourd’hui 🎉' : `Démarrer · ${total} carte(s)`}
       </button>
     </div>
 
     <div class="card" style="border-color:var(--accent)">
-      <h2 style="font-size:16px">🌊 Par vagues de ${WAVE}</h2>
-      <div class="sub">Sans plafond quotidien, mais par vagues digestes : ${WAVE} cartes, tu souffles, tu enchaînes si tu veux. Une carte ratée revient quelques cartes plus loin, dans la même vague, jusqu'à ce qu'elle tienne.</div>
+      <h2 style="font-size:16px">🌊 Par vagues de ${waveSize()}</h2>
+      <div class="sub">Sans plafond quotidien, mais par vagues digestes : ${waveSize()} cartes, tu souffles, tu enchaînes si tu veux. Une carte ratée revient quelques cartes plus loin, dans la même vague, jusqu'à ce qu'elle tienne.</div>
       <button class="btn mt sec" style="border-color:var(--accent);color:var(--accent)" onclick="startReview(true)" ${unlimitedTotal === 0 ? 'disabled' : ''}>
-        ${unlimitedTotal === 0 ? 'Tous les mots ont été vus ✓' : `Lancer une vague · ${Math.min(WAVE, unlimitedTotal)} carte(s) sur ${unlimitedTotal}`}
+        ${unlimitedTotal === 0 ? 'Tous les mots ont été vus ✓' : `Lancer une vague · ${Math.min(waveSize(), unlimitedTotal)} carte(s) sur ${unlimitedTotal}`}
       </button>
       <div class="sub center mt">${remaining} mot(s) encore jamais vus</div>
     </div>
 
     ${seen ? `<div class="card" style="border-color:var(--blue)">
       <h2 style="font-size:16px">🔁 Revoir ce que tu as déjà vu</h2>
-      <div class="sub">Vu ne veut pas dire su. Une vague de ${WAVE} cartes déjà vues, <b style="color:var(--txt)">les plus fragiles d'abord</b> (celles que ta mémoire est le plus près de lâcher), même si elles ne sont pas dues. Note-toi honnêtement : « Encore » remet la carte en apprentissage et elle revient vite — c'est exactement le but.</div>
-      <button class="btn mt sec" style="border-color:var(--blue);color:var(--blue)" onclick="startRevise()">Revoir une vague · ${Math.min(WAVE, seen)} carte(s)</button>
+      <div class="sub">Vu ne veut pas dire su. Une vague de ${waveSize()} cartes déjà vues, <b style="color:var(--txt)">les plus fragiles d'abord</b> (celles que ta mémoire est le plus près de lâcher), même si elles ne sont pas dues. Note-toi honnêtement : « Encore » remet la carte en apprentissage et elle revient vite — c'est exactement le but.</div>
+      <button class="btn mt sec" style="border-color:var(--blue);color:var(--blue)" onclick="startRevise()">Revoir une vague · ${Math.min(waveSize(), seen)} carte(s)</button>
       <div class="sub center mt">Un thème précis ? Touche-le plus bas : s'il est à jour, il passe en mode revoir.</div>
     </div>` : ''}
 
@@ -1605,7 +1632,7 @@ function startThemeReview(theme) {
   renderCard();
 }
 function startRevise(theme) {
-  const queue = shuffle(buildReviseQueue(theme).slice(0, WAVE));
+  const queue = shuffle(buildReviseQueue(theme).slice(0, waveSize()));
   if (queue.length === 0) { toast('Aucune carte déjà vue à revoir pour l’instant'); return; }
   R = { queue, pos: 0, shown: false, reviewed: 0, unlimited: true, theme: theme || null, revise: true };
   renderCard();
@@ -1697,7 +1724,7 @@ function finishReview() {
     </div>
     <button class="btn" onclick="setView('anki')">Terminé</button>
     ${R.revise
-      ? `<button class="btn sec mt" onclick="startRevise(${R.theme ? `'${R.theme}'` : ''})">🔁 Revoir encore · ${R.theme ? `« ${R.theme} »` : `les ${WAVE} plus fragiles`}</button>`
+      ? `<button class="btn sec mt" onclick="startRevise(${R.theme ? `'${R.theme}'` : ''})">🔁 Revoir encore · ${R.theme ? `« ${R.theme} »` : `les ${waveSize()} plus fragiles`}</button>`
       : R.theme
       ? (buildThemeQueue(R.theme).length ? `<button class="btn sec mt" onclick="startThemeReview('${R.theme}')">Continuer « ${R.theme} » (${buildThemeQueue(R.theme).length})</button>` : '')
       : R.unlimited
