@@ -146,6 +146,12 @@ function load() {
 /* save() n'avait AUCUNE protection : localStorage est partagé par la vingtaine
    d'apps de la même origine, et setItem LÈVE quand le quota est atteint —
    l'exception interrompait alors la fonction appelante, en silence. */
+function toggleCardMute() {
+  S.cardMute = !S.cardMute; save();
+  if (S.cardMute) { try { speechSynthesis.cancel(); } catch (e) {} }
+  const b = document.querySelector('.cardmute'); if (b) b.textContent = S.cardMute ? '🔇 Son des cartes coupé · le réactiver' : '🔊 Son auto · le couper';
+  toast(S.cardMute ? 'Cartes en silence : le 🔊 reste là si tu veux écouter' : 'Son des cartes réactivé');
+}
 function save() {
   if (S && S._illisible) return false;                // on n'écrase jamais l'illisible
   try { localStorage.setItem('tcumbre', JSON.stringify(S)); SAVE_KO = 0; return true; }
@@ -1679,6 +1685,7 @@ function renderCard() {
       <div id="taphint" class="tap">${R.dir === 'en2fr' ? 'Traduis en français' : 'Traduis en espagnol'} · touche pour révéler ▽</div>
     </div>
     <button id="spk" class="spk ${R.dir === 'fr2en' ? 'hidden' : ''}" onclick="speak('${enEsc}');event.stopPropagation()" title="Écouter l'espagnol">🔊</button>
+    <button class="cardmute" onclick="toggleCardMute();event.stopPropagation()">${S.cardMute ? '🔇 Son des cartes coupé · le réactiver' : '🔊 Son auto · le couper'}</button>
     <div id="ratebar"></div>
   `;
 }
@@ -1690,7 +1697,7 @@ function flip() {
   const i = R.queue[R.pos];
   if (R.dir === 'fr2en') {                 // l'espagnol était caché : on le révèle et on le prononce
     const s = document.getElementById('spk'); if (s) s.classList.remove('hidden');
-    speak(VOCAB[i][0]);
+    if (!S.cardMute) speak(VOCAB[i][0]);
   }
   document.getElementById('ratebar').innerHTML = `
     <div class="srsrow">
