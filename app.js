@@ -154,7 +154,7 @@ function toggleCardMute() {
 }
 function save() {
   if (S && S._illisible) return false;                // on n'écrase jamais l'illisible
-  try { localStorage.setItem('tcumbre', JSON.stringify(S)); SAVE_KO = 0; return true; }
+  try { localStorage.setItem('tcumbre', JSON.stringify(S)); SAVE_KO = 0; if (window.AppsSync) AppsSync.soon(4000, ['tcumbre']); return true; }
   catch (e) {
     SAVE_KO++;
     if (SAVE_KO === 1 || SAVE_KO % 20 === 0) {
@@ -4329,4 +4329,16 @@ render();
 /* ---------- Service worker ---------- */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+/* ── synchro téléphone ↔ ordi (même coffre privé que Le Pointage) ──
+   À l'ouverture et au retour sur l'app : on récupère ce que l'autre appareil
+   a fait. En quittant l'app, et 4 s après chaque changement : on envoie. */
+if (window.AppsSync) {
+  AppsSync.onChange(l => { if (l.indexOf('tcumbre') < 0) return;
+    if (S && S._illisible) return; S = load(); try { if (view === 'home') render(); else if (typeof refreshHeader === 'function') refreshHeader(); } catch (e) {} });
+  const appsGo = () => { if (AppsSync.enabled()) AppsSync.run(['tcumbre']); };
+  appsGo();
+  document.addEventListener('visibilitychange', () => { if (!AppsSync.enabled()) return;
+    if (document.visibilityState === 'visible') appsGo(); else AppsSync.soon(0, ['tcumbre']); });
 }

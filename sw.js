@@ -1,8 +1,8 @@
 /* CUMBRE — service worker : cache offline (app shell) */
-const CACHE = 'cumbre-v37-volume100-mute';
+const CACHE = 'cumbre-v38-synchro';
 const ASSETS = [
   'index.html',
-  'app.js?v=32',
+  'app.js?v=33',
   'grammar-obligacion.js?v=1',
   'data-hablar.js?v=1',
   'hablar.js?v=1',
@@ -56,7 +56,7 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  if (e.request.method !== 'GET' || !e.request.url.startsWith(self.location.origin)) return;
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
       const copy = res.clone();
