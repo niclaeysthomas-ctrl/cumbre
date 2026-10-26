@@ -150,9 +150,15 @@ function load() {
 /* save() n'avait AUCUNE protection : localStorage est partagé par la vingtaine
    d'apps de la même origine, et setItem LÈVE quand le quota est atteint —
    l'exception interrompait alors la fonction appelante, en silence. */
+function toggleCardMute() {
+  S.cardMute = !S.cardMute; save();
+  if (S.cardMute) { try { speechSynthesis.cancel(); } catch (e) {} }
+  const b = document.querySelector('.cardmute'); if (b) b.textContent = S.cardMute ? '🔇 Son des cartes coupé · le réactiver' : '🔊 Son auto · le couper';
+  toast(S.cardMute ? 'Cartes en silence : le 🔊 reste là si tu veux écouter' : 'Son des cartes réactivé');
+}
 function save() {
   if (S && S._illisible) return false;                // on n'écrase jamais l'illisible
-  try { localStorage.setItem('tcumbre', JSON.stringify(S)); SAVE_KO = 0; return true; }
+  try { localStorage.setItem('tcumbre', JSON.stringify(S)); SAVE_KO = 0; if (window.AppsSync) AppsSync.soon(4000, ['tcumbre']); return true; }
   catch (e) {
     SAVE_KO++;
     if (SAVE_KO === 1 || SAVE_KO % 20 === 0) {
@@ -1811,6 +1817,7 @@ function renderCard() {
       <div id="taphint" class="tap">${R.dir === 'en2fr' ? 'Traduis en français' : 'Traduis en espagnol'} · touche pour révéler ▽</div>
     </div>
     <button id="spk" class="spk ${R.dir === 'fr2en' ? 'hidden' : ''}" onclick="speak('${enEsc}');event.stopPropagation()" title="Écouter l'espagnol">🔊</button>
+    <button class="cardmute" onclick="toggleCardMute();event.stopPropagation()">${S.cardMute ? '🔇 Son des cartes coupé · le réactiver' : '🔊 Son auto · le couper'}</button>
     <div id="ratebar"></div>
   `;
 }
@@ -1822,7 +1829,7 @@ function flip() {
   const i = R.queue[R.pos];
   if (R.dir === 'fr2en') {                 // l'espagnol était caché : on le révèle et on le prononce
     const s = document.getElementById('spk'); if (s) s.classList.remove('hidden');
-    speak(VOCAB[i][0]);
+    if (!S.cardMute) speak(VOCAB[i][0]);
   }
   document.getElementById('ratebar').innerHTML = `
     <div class="srsrow">
@@ -4503,4 +4510,16 @@ render();
 /* ---------- Service worker ---------- */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+/* ── synchro téléphone ↔ ordi (même coffre privé que Le Pointage) ──
+   À l'ouverture et au retour sur l'app : on récupère ce que l'autre appareil
+   a fait. En quittant l'app, et 4 s après chaque changement : on envoie. */
+if (window.AppsSync) {
+  AppsSync.onChange(l => { if (l.indexOf('tcumbre') < 0) return;
+    if (S && S._illisible) return; S = load(); try { if (view === 'home') render(); else if (typeof refreshHeader === 'function') refreshHeader(); } catch (e) {} });
+  const appsGo = () => { if (AppsSync.enabled()) AppsSync.run(['tcumbre']); };
+  appsGo();
+  document.addEventListener('visibilitychange', () => { if (!AppsSync.enabled()) return;
+    if (document.visibilityState === 'visible') appsGo(); else AppsSync.soon(0, ['tcumbre']); });
 }

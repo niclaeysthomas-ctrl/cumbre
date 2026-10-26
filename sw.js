@@ -1,5 +1,5 @@
 /* CUMBRE — service worker : cache offline (app shell) */
-const CACHE = 'cumbre-v43-cap200';
+const CACHE = 'cumbre-v44-cap200-synchro';
 const ASSETS = [
   'index.html',
   'app.js?v=38',
@@ -64,7 +64,7 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  if (e.request.method !== 'GET' || !e.request.url.startsWith(self.location.origin)) return;
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
       const copy = res.clone();
