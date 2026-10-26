@@ -39,6 +39,8 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 .stats{display:flex;gap:8px}
 .chip{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 10px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px}
 .chip .k{color:var(--muted);font-weight:600;font-size:11px}
+.mutebtn{font-size:15px;line-height:1;padding:6px 8px;min-width:36px;justify-content:center}
+.mutebtn.off{border-color:var(--bad);background:#ff5c6c18}
 
 /* Cards */
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--sh);margin-bottom:14px}
@@ -409,6 +411,7 @@ details.dlsrc .dltext{max-height:300px;overflow-y:auto}
   <div class="logo">CUMBRE<small>ESPAÑOL · A2 → C1 · DELE</small></div>
   <div class="stats">
     <div class="chip"><span class="streakflame">🔥</span><span id="streak">0</span></div>
+    <button class="chip mutebtn" id="mutebtn" type="button" onclick="toggleMute()" aria-pressed="false" aria-label="Couper le son" title="Couper le son">🔊</button>
     <div class="chip"><span class="k">Niv.</span><span id="hlevel">1</span></div>
   </div>
 </div>
@@ -438,9 +441,14 @@ details.dlsrc .dltext{max-height:300px;overflow-y:auto}
 <script src="vocab-es9.js?v=1"></script>
 <script src="vocab-es10.js?v=1"></script>
 <script src="vocab-es11.js?v=1"></script>
+<script src="vocab-es12.js?v=1"></script>
+<script src="vocab-es13.js?v=1"></script>
+<script src="vocab-es14.js?v=1"></script>
 <script src="translations.js?v=1"></script>
 <script src="translations2.js?v=1"></script>
 <script src="translations3.js?v=1"></script>
+<script src="translations4.js?v=1"></script>
+<script src="translations5.js?v=1"></script>
 <script src="data-lecturas.js?v=4"></script>
 <script src="data-shadowing.js?v=1"></script>
 <script src="data-dudas.js?v=1"></script>
@@ -462,6 +470,9 @@ details.dlsrc .dltext{max-height:300px;overflow-y:auto}
 <script src="data-reflex.js?v=1"></script>
 <script src="data-examen-c1.js?v=1"></script>
 <script src="data-idiomatico.js?v=1"></script>
-<script src="app.js?v=32"></script>
+<script src="grammar-lot5.js?v=1"></script>
+<script src="data-escenas.js?v=1"></script>
+<script src="charla.js?v=1"></script>
+<script src="app.js?v=38"></script>
 </body>
 </html>

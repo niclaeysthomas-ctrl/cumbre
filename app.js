@@ -56,12 +56,16 @@ let GOAL_CARDS = 20, GOAL_TRANS = 5; const GOAL_CONJ = 3;
 const REGIMES = {
   tranquilo: { emoji: '🌱', name: 'Tranquilo', cards: 100, trans: 6,  neu: 100, wave: 25, desc: "Le plancher : 100 cartes par jour, même les jours pris." },
   rapido:    { emoji: '🔥', name: 'Rápido',    cards: 150, trans: 10, neu: 150, wave: 30, desc: "Le bon rythme pour avancer vite et tenir dans la durée." },
-  intensivo: { emoji: '⚡', name: 'Intensivo', cards: 220, trans: 14, neu: 220, wave: 40, desc: "Gros volume quotidien. Le C1 sans traîner." },
-  atope:     { emoji: '🚀', name: 'A tope',    cards: 320, trans: 20, neu: 320, wave: 50, desc: "Sprint. Soutenable quelques semaines, pas toute l'année." }
+  intensivo: { emoji: '⚡', name: 'Intensivo', cards: 200, trans: 14, neu: 200, wave: 40, desc: "Le maximum : 200 cartes par jour, révisions comprises." }
 };
-const REGIME_ORDER = ['tranquilo', 'rapido', 'intensivo', 'atope'];
+/* 2026-10-26 — PLAFOND DUR : jamais plus de 200 cartes par jour, révisions
+   en retard comprises (il y en avait 711 d'un coup). L'ancien « A tope »
+   (320/jour) dépassait ce plafond : il est fondu dans Intensivo. */
+const DAILY_CAP = 200;
+const REGIME_ORDER = ['tranquilo', 'rapido', 'intensivo'];
 const DEFAULT_REGIME = 'rapido';
-function currentRegime() { return REGIMES[S.regime] || REGIMES[DEFAULT_REGIME]; }
+function currentRegime() { const k = S.regime === 'atope' ? 'intensivo' : S.regime; return REGIMES[k] || REGIMES[DEFAULT_REGIME]; }
+function dailyCardCap() { return Math.min(DAILY_CAP, currentRegime().cards); }
 function applyRegime() { const r = currentRegime(); GOAL_CARDS = r.cards; GOAL_TRANS = r.trans; NEW_PER_DAY = r.neu; }
 function setRegime(k) { if (!REGIMES[k]) return; S.regime = k; save(); applyRegime(); toast(REGIMES[k].emoji + ' Intensité : ' + REGIMES[k].name); render(); }
 function resetDailyIfNeeded() {
@@ -77,7 +81,7 @@ function markStudy() { resetDailyIfNeeded(); S.daily.study = 1; save(); checkDai
    revue quitte les dues et entre dans les faites. */
 function goalCardsToday() {
   resetDailyIfNeeded();
-  const cible = currentRegime().cards;
+  const cible = dailyCardCap();
   const dispo = dueCards().length + newAvailable(false).length + (S.daily.cards || 0);
   return Math.min(cible, dispo);          /* 0 = plus rien à réviser aujourd'hui */
 }
@@ -202,7 +206,8 @@ function cardState(i) {
   return S.cards[i] || { ease: 2.5, interval: 0, reps: 0, due: 0, lapses: 0, introduced: false };
 }
 // files du jour
-function dueCards() {
+// TOUTES les cartes dues, sans plafond (retard compris)
+function dueCardsAll() {
   const now = Date.now();
   const rev = [];         // cartes déjà introduites et dues
   for (const i in S.cards) {
@@ -211,6 +216,32 @@ function dueCards() {
   }
   return rev;
 }
+/* Les cartes dues SERVIES aujourd'hui : au plus ce qui reste du plafond
+   quotidien (200 − cartes déjà faites aujourd'hui). Quand il y a du retard,
+   on choisit lesquelles passer en premier :
+   1. les cartes ratées (« Encore ») en cours de réapprentissage ;
+   2. puis celles que tu as le plus de chances de retrouver encore (récupérabilité
+      FSRS décroissante). C'est la stratégie recommandée pour résorber un retard :
+      chaque réussite repousse la carte loin et allège les jours suivants ; les
+      mots déjà presque oubliés reviendront de toute façon.
+   Le reste attend demain — rien n'est perdu ni remis à zéro. */
+function dueCardsPrio(now) {
+  return dueCardsAll().map(i => {
+    const c = S.cards[i];
+    if (!c.interval) return [i, 2];                       // en réapprentissage : d'abord
+    const stab = typeof c.fsrsS === 'number' ? c.fsrsS : Math.max(0.5, c.interval || 0);
+    const last = c.last || (c.due - Math.max(1, c.interval || 1) * DAY);
+    return [i, fsrsRetr(Math.max(0, (now - last) / DAY), Math.max(0.1, stab))];
+  }).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+}
+function dueCards() {
+  resetDailyIfNeeded();
+  const budget = Math.max(0, dailyCardCap() - (S.daily.cards || 0));
+  const all = dueCardsAll();
+  if (all.length <= budget) return all;
+  return dueCardsPrio(Date.now()).slice(0, budget);
+}
+function dueBacklog() { return Math.max(0, dueCardsAll().length - dueCards().length); }
 // Ordre d'introduction des cartes : mélange déterministe pour brasser les thèmes
 // (quotidien, business, idiomes...) dès le premier jour, mais stable d'un chargement à l'autre.
 function seededOrder(n, seed) {
@@ -241,7 +272,16 @@ const BUILTIN_N = window.VOCAB.length;
   if (S.builtinLen !== BUILTIN_N) { S.builtinLen = BUILTIN_N; save(); }
 })();
 if (S.userVocab && S.userVocab.length) window.VOCAB = window.VOCAB.concat(S.userVocab);
-const VOCAB_ORDER = seededOrder(VOCAB.length, 990);
+/* 2026-10-13 — MES MOTS d'abord : les mots que TU ajoutes (livre, lecture…)
+   passent en tête des nouvelles cartes, au lieu de se noyer au hasard dans
+   des milliers de mots intégrés. Ne touche à AUCUN état SRS (S.cards reste
+   indexé par position) : seul l'ordre d'introduction des cartes neuves change. */
+/* Puis les lots intégrés marqués prioritaires (window.VOCAB_PRIO, ex. lot 14
+   « Mi libro »), puis tout le reste dans l'ordre aléatoire habituel. */
+const VOCAB_PRIO_SET = new Set((window.VOCAB_PRIO || []).filter(i => i < BUILTIN_N));
+const VOCAB_ORDER = [...Array(VOCAB.length - BUILTIN_N).keys()].map(k => BUILTIN_N + k)
+  .concat([...VOCAB_PRIO_SET])
+  .concat(seededOrder(BUILTIN_N, 990).filter(i => !VOCAB_PRIO_SET.has(i)));
 /* Les nouvelles cartes COMPLÈTENT la journée jusqu'à la cible du régime, au lieu
    d'être plafonnées à un nombre fixe. Une journée à 120 révisions dues n'ajoute
    rien de neuf ; une journée à 20 dues en ajoute 80 pour atteindre 100. On sert
@@ -250,7 +290,7 @@ const VOCAB_ORDER = seededOrder(VOCAB.length, 990);
 function newAvailable(unlimited) {
   const r = currentRegime();
   resetDailyIfNeeded();
-  const manque = Math.max(0, r.cards - dueCards().length - (S.daily.cards || 0));
+  const manque = Math.max(0, dailyCardCap() - dueCards().length - (S.daily.cards || 0));
   const cap = unlimited ? Infinity
     : Math.min(Math.max(0, (r.neu || NEW_PER_DAY) - S.newToday), manque);
   const out = [];
@@ -272,8 +312,9 @@ function buildQueue(unlimited) {
   // révisions d'abord, puis nouvelles cartes.
   // Sans plafond quotidien : on sert par VAGUES de 25 — une file de 300 cartes
   // affichée d'un coup décourage et ne fait rien apprendre de plus.
-  const q = dueCards().concat(newAvailable(unlimited));
-  return unlimited ? q.slice(0, waveSize()) : q;
+  // Vagues = du rab VOLONTAIRE au-delà du plafond : on y sert d'abord le retard.
+  if (unlimited) return dueCardsPrio(Date.now()).concat(newAvailable(true)).slice(0, waveSize());
+  return dueCards().concat(newAvailable(false));
 }
 // File d'un thème précis (révisions dues + toutes les nouvelles du thème, sans plafond)
 function buildThemeQueue(theme) {
@@ -408,8 +449,17 @@ function matureCount() {
 /* ---------- Déblocage leçons ---------- */
 function lessonUnlocked(idx) {
   if (idx === 0) return true;
-  const prev = LESSONS[idx - 1];
-  return S.lessons[prev.id] && S.lessons[prev.id].done;
+  // On remonte le parcours : la première leçon validée trouvée débloque.
+  // Les leçons insérées plus tard (lot 5, « inserted: true ») ne bloquent
+  // jamais le chemin : on les enjambe pour regarder la leçon d'avant.
+  for (let k = idx - 1; k >= 0; k--) {
+    const l = LESSONS[k];
+    if (S.lessons[l.id] && S.lessons[l.id].done) return true;
+    if (!l.inserted) break;
+  }
+  // Et une leçon insérée reste ouverte si une leçon située APRÈS elle est validée.
+  for (let k = idx + 1; k < LESSONS.length; k++) if (S.lessons[LESSONS[k].id] && S.lessons[LESSONS[k].id].done) return true;
+  return false;
 }
 
 /* ============================================================
@@ -491,11 +541,77 @@ function addWordToAnki(word, gloss, ejemplo, tema){
   if(wordInDeck(w)){ toast('Déjà dans tes cartes ✓'); return; }
   if(!S.userVocab) S.userVocab=[];
   const card=[w, gloss||w, ejemplo||'', tema||'Lectura'];
-  S.userVocab.push(card); VOCAB.push(card); VOCAB_ORDER.push(VOCAB.length-1);
+  S.userVocab.push(card); VOCAB.push(card); VOCAB_ORDER.splice(S.userVocab.length-1, 0, VOCAB.length-1);
   save();
   toast('🃏 « '+w+' » ajouté à tes cartes');
   const btn=document.getElementById('wsheetAdd'); if(btn){ btn.textContent='✓ Ajouté à tes cartes'; btn.className='btn sec mt'; btn.disabled=true; }
   document.querySelectorAll('.gl').forEach(el=>{ if(el.textContent.trim().toLowerCase()===w.toLowerCase()) el.classList.add('added'); });
+}
+/* ============================================================
+   MIS PALABRAS — ajouter à la main les mots croisés ailleurs (un livre…)
+   Ajout = append en fin de deck (S.userVocab) → indices intégrés intacts,
+   progression intacte. Pas de suppression : retirer un mot décalerait les
+   suivants. On peut en revanche CORRIGER un mot (modif en place).
+   ============================================================ */
+function mpClean(v){ return String(v||'').replace(/[<>]/g,'').replace(/\s+/g,' ').trim(); }
+function mpTheme(v){ return mpClean(v).replace(/['"`\\]/g,'') || 'Mi libro'; }
+let MP_EDIT = -1;
+function renderMisPalabras(){
+  const uv = S.userVocab || [];
+  const lastTheme = S.mpTheme || 'Mi libro';
+  const ed = MP_EDIT >= 0 ? uv[MP_EDIT] : null;
+  const val = (x)=>escapeHtml(String(x||'')).replace(/"/g,'&quot;');
+  const rows = uv.map((v,k)=>({v,k})).reverse().map(({v,k})=>{
+    const c = S.cards[BUILTIN_N + k];
+    const st = (c && c.introduced) ? `<span class="vst st-lrn">vu</span>` : `<span class="vst">à venir</span>`;
+    return `<div class="vrow">
+      <button class="spk sm" onclick="speak(VOCAB[${BUILTIN_N + k}][0])" title="Écouter">🔊</button>
+      <div class="vinfo"><div class="ven">${escapeHtml(v[0])}</div><div class="vfr">${escapeHtml(v[1])}</div>${v[2]?`<div class="sub" style="font-size:12px;font-style:italic">${escapeHtml(v[2])}</div>`:''}</div>
+      <div class="vmeta"><span class="pill">${escapeHtml(v[3])}</span>${st}<button class="segchip" style="padding:2px 8px" onclick="mpEdit(${k})">✏️</button></div>
+    </div>`;
+  }).join('');
+  app.innerHTML = `
+    <div class="card" style="border-color:var(--accent)">
+      <h2>${ed ? '✏️ Corriger un mot' : '➕ Ajouter un mot'}</h2>
+      <div class="sub">${ed ? 'La correction garde la progression de la carte.' : "Un mot croisé dans ton livre ? Ajoute-le : il devient une carte comme les autres, et passe <b style=\"color:var(--txt)\">en tête de tes nouvelles cartes</b>. Ta progression actuelle ne bouge pas."}</div>
+      <input id="mp-es" class="transinput mt" style="min-height:0" lang="es" autocomplete="off" autocapitalize="none" placeholder="Espagnol (ex. el desván, ensimismarse)" value="${ed?val(ed[0]):''}" oninput="mpCheck()" onkeydown="if(event.key==='Enter')document.getElementById('mp-fr').focus()">
+      <div id="mp-dup" class="sub" style="font-size:12px;min-height:16px;color:var(--warn,#e0a030)"></div>
+      <input id="mp-fr" class="transinput" style="min-height:0" autocomplete="off" placeholder="Français (le sens)" value="${ed?val(ed[1]):''}" onkeydown="if(event.key==='Enter')mpSave()">
+      <textarea id="mp-ex" class="transinput mt" rows="2" lang="es" placeholder="Phrase du livre (facultatif — aide beaucoup à retenir)">${ed?escapeHtml(ed[2]||''):''}</textarea>
+      <input id="mp-th" class="transinput mt" style="min-height:0" autocomplete="off" placeholder="Thème (ex. le titre du livre)" value="${val(ed?ed[3]:lastTheme)}">
+      <button class="btn mt" onclick="mpSave()">${ed ? '💾 Enregistrer la correction' : '🃏 Ajouter à mes cartes'}</button>
+      ${ed ? `<button class="btn ghost" onclick="MP_EDIT=-1;renderMisPalabras()">Annuler</button>` : ''}
+    </div>
+    <div class="sub mb" style="padding-left:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12px">Mes mots ajoutés · ${uv.length}</div>
+    ${rows || '<div class="sub center">Aucun mot pour l\'instant.</div>'}
+    <button class="btn ghost mt" onclick="MP_EDIT=-1;setView('anki')">Retour</button>
+  `;
+  const f = document.getElementById(ed ? 'mp-fr' : 'mp-es'); if (f) f.focus();
+}
+function mpCheck(){
+  const w = mpClean((document.getElementById('mp-es')||{}).value).toLowerCase();
+  const box = document.getElementById('mp-dup'); if (!box) return;
+  if (!w) { box.textContent=''; return; }
+  const i = VOCAB.findIndex((v,j)=>String(v[0]).toLowerCase().trim()===w && j!==BUILTIN_N+MP_EDIT);
+  box.textContent = i >= 0 ? '✓ Déjà dans tes cartes : « ' + VOCAB[i][1] + ' »' : '';
+}
+function mpEdit(k){ MP_EDIT = k; window.scrollTo(0,0); renderMisPalabras(); }
+function mpSave(){
+  const g = id => (document.getElementById(id)||{}).value;
+  const es = mpClean(g('mp-es')), fr = mpClean(g('mp-fr')), ex = mpClean(g('mp-ex')), th = mpTheme(g('mp-th'));
+  if (!es) { toast('Écris le mot espagnol'); return; }
+  if (!fr) { toast('Ajoute le sens en français'); document.getElementById('mp-fr').focus(); return; }
+  S.mpTheme = th;
+  if (MP_EDIT >= 0) {
+    const card = S.userVocab[MP_EDIT];
+    const dup = VOCAB.some((v,j)=>j!==BUILTIN_N+MP_EDIT && String(v[0]).toLowerCase().trim()===es.toLowerCase());
+    if (dup) { toast('Ce mot est déjà dans tes cartes'); return; }
+    card[0]=es; card[1]=fr; card[2]=ex; card[3]=th;     /* même objet que VOCAB[i] */
+    MP_EDIT = -1; save(); toast('💾 Corrigé'); renderMisPalabras(); return;
+  }
+  if (wordInDeck(es)) { toast('Déjà dans tes cartes ✓'); return; }
+  addWordToAnki(es, fr, ex, th);
+  renderMisPalabras();
 }
 function openLectura(id){
   const l=LECTURAS.find(x=>x.id===id); if(!l) return;
@@ -567,6 +683,7 @@ function render() {
   if (view === 'lectura') return renderLecturaHome();
   if (view === 'pron') return renderPronHome();
   if (view === 'hablar') return renderHablarHome();
+  if (view === 'charla' && typeof renderCharlaHome === 'function') return renderCharlaHome();
   if (view === 'redaccion') return renderRedaccionHome();
   if (view === 'conj') return renderConjHome();
   if (view === 'afondo') return renderAfondoHome();
@@ -708,7 +825,7 @@ function renderHome() {
         ${(() => { const g = goalCardsToday();
           if (g <= 0) return goalLine(true, 'Réviser des cartes', 'rien de dû ✓');
           return goalLine(dp.c >= 1, 'Réviser des cartes', `${Math.min(S.daily.cards, g)}/${g}`
-            + (g < currentRegime().cards ? ` <span style="color:var(--muted);font-size:11px">(tout ce qui est dû)</span>` : '')); })()}
+            + (g < dailyCardCap() ? ` <span style="color:var(--muted);font-size:11px">(tout ce qui est dû)</span>` : '')); })()}
         ${goalLine(dp.j >= 1, 'Conjuguer 3 verbes', `${Math.min(S.daily.conj || 0, GOAL_CONJ)}/${GOAL_CONJ}`)}
         ${goalLine(dp.p >= 1, 'Prononciation (R · ñ)', dp.p ? 'fait' : '0/1')}
         ${goalLine(dp.t >= 1, 'Traduire des phrases', `${Math.min(S.daily.trans, GOAL_TRANS)}/${GOAL_TRANS}`)}
@@ -781,6 +898,12 @@ function renderHome() {
       <div class="body"><div class="t">Hablar — parler d'un sujet</div><div class="d">Monologue guidé (DELE) : plan, chrono, analyse & modèle</div></div>
       <div class="badge zero">${(typeof HABLAR!=='undefined')?HABLAR.length:0}</div>
     </button>
+
+    ${typeof renderCharlaHome === 'function' ? `<button class="tile" style="border-color:var(--purple)" onclick="setView('charla')">
+      <div class="ic l">🎬</div>
+      <div class="body"><div class="t">Charla con Claude — scènes B1/B2</div><div class="d">Restaurant, médecin, appart… Claude joue le rôle, tu places le vocabulaire, bilan importé ici</div></div>
+      <div class="badge zero">${(typeof ESCENAS!=='undefined')?ESCENAS.length:'＋'}</div>
+    </button>` : ''}
 
     <button class="tile" style="border-color:var(--good)" onclick="setView('redaccion')">
       <div class="ic e">✍️</div>
@@ -855,12 +978,16 @@ const LESSON_TRANS = {
   sicond: ['Hypothèse C1'],
   imperativo: ['Impératif'],
   cambio: ['Verbos & régime'], regimen: ['Verbos & régime'], perifrasis: ['Verbos & régime'],
-  estiloindirecto: [], pasivase: [], conectores: [],
+  estiloindirecto: ['Style indirect'], pasivase: ['Pasiva & se'], conectores: ['Connecteurs'],
   /* palier C1-C2 */
   seinvol: ['Nuances C2'], concesivas: ['Nuances C2'], relativo: ['Nuances C2'],
   loneutro: ['Nuances C2'], causafin: ['Nuances C2'], correlacion: ['Nuances C2'],
   /* palier C1->C2 (lot 4) */
-  pronominales: ['Matices C1'], probabilidad: ['Matices C1'], consecomp: ['Matices C1'], acentuacion: []
+  pronominales: ['Matices C1'], probabilidad: ['Matices C1'], consecomp: ['Matices C1'], acentuacion: [],
+  /* lot 5 : les trous du parcours */
+  apersonal: ['Bases B1'], indefinidos: ['Bases B1'], preposiciones: ['Bases B1'],
+  comparativos: ['Comparaisons'], pluscuam: ['Plus-que-parfait'], temporales: ['Cuando + subj'],
+  infger: ['Infinitif & gérondif'], condiciones: ['Conditions']
 };
 function doneLessons() { return LESSONS.filter(l => S.lessons[l.id] && S.lessons[l.id].done); }
 function buildMix(n) {
@@ -1363,11 +1490,12 @@ function renderAnkiHome() {
   const news = newAvailable(false).length;         // nouvelles dispo aujourd'hui (plafonné)
   const total = due + news;
   const remaining = totalUnlearned();              // toutes les cartes encore jamais vues
-  const unlimitedTotal = due + remaining;
+  const unlimitedTotal = dueCardsAll().length + remaining;
+  const backlog = dueBacklog();
   const seen = learnedCount();
   const rg = currentRegime();
   const regChips = REGIME_ORDER.map(k => {
-    const r = REGIMES[k], on = (S.regime || DEFAULT_REGIME) === k;
+    const r = REGIMES[k], on = ((S.regime === 'atope' ? 'intensivo' : S.regime) || DEFAULT_REGIME) === k;
     return `<button class="segchip" style="${on ? 'border-color:var(--accent);color:var(--accent);font-weight:800' : ''}" onclick="setRegime('${k}')">${r.emoji} ${r.name}</button>`;
   }).join('');
   // répartition par thème
@@ -1381,21 +1509,24 @@ function renderAnkiHome() {
       <div class="sub">Règle ton volume du jour. Monte-le quand tu veux tout donner, baisse-le les jours pris — c'est toi qui tiens le curseur.</div>
       <div class="mt" style="display:flex;flex-wrap:wrap;gap:8px">${regChips}</div>
       <div class="sub mt"><b style="color:var(--txt)">${rg.emoji} ${rg.name}</b> — ${rg.desc}</div>
-      <div class="sub mt" style="color:var(--muted)"><b style="color:var(--txt)">${rg.cards}</b> cartes/jour · <b style="color:var(--txt)">${rg.trans}</b> traductions · <b style="color:var(--txt)">${GOAL_CONJ}</b> verbes · vagues de <b style="color:var(--txt)">${rg.wave}</b></div>
+      <div class="sub mt" style="color:var(--muted)"><b style="color:var(--txt)">${dailyCardCap()}</b> cartes/jour max · <b style="color:var(--txt)">${rg.trans}</b> traductions · <b style="color:var(--txt)">${GOAL_CONJ}</b> verbes · vagues de <b style="color:var(--txt)">${rg.wave}</b></div>
       ${(S.regime === 'atope' || S.regime === 'intensivo') ? `<div class="pill warn mt">Gros volume : chaque nouveau mot revient en révision quelques jours plus tard. Tiens le rythme, ou redescends d'un cran sans culpabiliser.</div>` : ''}
+      <div class="sub mt" style="font-size:12px">Plafond dur : jamais plus de <b style="color:var(--txt)">${DAILY_CAP}</b> cartes par jour, révisions en retard comprises.</div>
     </div>
     <div class="card">
       <h2>Cartes de vocabulaire</h2>
       <div class="sub">Répétition espacée <b style="color:var(--txt)">FSRS</b> (l'algorithme moderne d'Anki), sens tiré <b style="color:var(--txt)">au hasard</b> 🇪🇸→🇫🇷 ou 🇫🇷→🇪🇸 : tu dois savoir <i>produire</i> le mot, pas juste le reconnaître. Objectif : de A2 à C1, du quotidien au registre soutenu.</div>
       <div class="row2 mt">
-        <div><div class="logo" style="font-size:24px;color:var(--blue)">${due}</div><div class="sub">à réviser</div></div>
+        <div><div class="logo" style="font-size:24px;color:var(--blue)">${due}</div><div class="sub">à réviser aujourd'hui</div></div>
         <div><div class="logo" style="font-size:24px;color:var(--accent)">${learnedCount()}<span style="font-size:15px;color:var(--muted)"> / ${VOCAB.length}</span></div><div class="sub">mots appris</div></div>
       </div>
     </div>
 
     <div class="card">
       <h2 style="font-size:16px">Session du jour</h2>
-      <div class="sub">Toutes tes révisions dues, <b style="color:var(--txt)">complétées par des mots neufs jusqu'à ${currentRegime().cards} cartes</b>. Beaucoup de révisions aujourd'hui ? L'app n'ajoute rien de neuf. Peu de révisions ? Elle remplit. Le volume ne descend jamais sous ta cible tant qu'il reste des mots à voir.</div>
+      <div class="sub">Tes révisions dues, <b style="color:var(--txt)">jamais plus de ${dailyCardCap()} cartes au total</b>. Beaucoup de révisions ? L'app n'ajoute rien de neuf. Peu de révisions ? Elle complète avec des mots neufs jusqu'à ${dailyCardCap()}.</div>
+      ${backlog ? `<div class="pill warn mt">⏳ ${backlog} révision(s) en retard reportée(s) à demain. Ordre de passage : cartes ratées d'abord, puis celles que tu as le plus de chances de retrouver. Pas de mots neufs tant que le retard dépasse ${dailyCardCap()}.</div>` : ''}
+      ${S.daily.cards >= dailyCardCap() ? `<div class="sub mt" style="color:var(--good)">✓ Plafond du jour atteint (${S.daily.cards} cartes). Repos pour la mémoire — ou une vague en bonus plus bas.</div>` : ''}
       <button class="btn mt" onclick="startReview(false)" ${total === 0 ? 'disabled' : ''}>
         ${total === 0 ? 'Rien à réviser pour aujourd’hui 🎉' : `Démarrer · ${total} carte(s)`}
       </button>
@@ -1403,7 +1534,7 @@ function renderAnkiHome() {
 
     <div class="card" style="border-color:var(--accent)">
       <h2 style="font-size:16px">🌊 Par vagues de ${waveSize()}</h2>
-      <div class="sub">Sans plafond quotidien, mais par vagues digestes : ${waveSize()} cartes, tu souffles, tu enchaînes si tu veux. Une carte ratée revient quelques cartes plus loin, dans la même vague, jusqu'à ce qu'elle tienne.</div>
+      <div class="sub"><b style="color:var(--txt)">Bonus, au-delà du plafond de ${DAILY_CAP}</b> — seulement si tu as de l'énergie. Le retard passe en premier, puis des mots neufs. ${waveSize()} cartes, tu souffles, tu enchaînes si tu veux. Une carte ratée revient quelques cartes plus loin, dans la même vague, jusqu'à ce qu'elle tienne.</div>
       <button class="btn mt sec" style="border-color:var(--accent);color:var(--accent)" onclick="startReview(true)" ${unlimitedTotal === 0 ? 'disabled' : ''}>
         ${unlimitedTotal === 0 ? 'Tous les mots ont été vus ✓' : `Lancer une vague · ${Math.min(waveSize(), unlimitedTotal)} carte(s) sur ${unlimitedTotal}`}
       </button>
@@ -1417,6 +1548,7 @@ function renderAnkiHome() {
       <div class="sub center mt">Un thème précis ? Touche-le plus bas : s'il est à jour, il passe en mode revoir.</div>
     </div>` : ''}
 
+    <button class="btn" onclick="renderMisPalabras()">➕ Ajouter mes mots (livre, lecture…)${(S.userVocab||[]).length ? ' · ' + S.userVocab.length + ' ajoutés' : ''}</button>
     <button class="btn sec" onclick="renderVocabBrowser('')">🔍 Parcourir / rechercher les ${VOCAB.length} mots</button>
 
     <div class="card mt">
@@ -1728,7 +1860,7 @@ function finishReview() {
       : R.theme
       ? (buildThemeQueue(R.theme).length ? `<button class="btn sec mt" onclick="startThemeReview('${R.theme}')">Continuer « ${R.theme} » (${buildThemeQueue(R.theme).length})</button>` : '')
       : R.unlimited
-      ? ((dueCards().length + totalUnlearned()) ? `<button class="btn sec mt" onclick="startReview(true)">🌊 Vague suivante · ${dueCards().length + totalUnlearned()} restante(s)</button>` : '')
+      ? ((dueCardsAll().length + totalUnlearned()) ? `<button class="btn sec mt" onclick="startReview(true)">🌊 Vague suivante · ${dueCardsAll().length + totalUnlearned()} restante(s)</button>` : '')
       : (buildQueue(false).length ? `<button class="btn sec mt" onclick="startReview(false)">Continuer (${buildQueue(false).length})</button>` : '')}
   `;
 }
@@ -2087,6 +2219,55 @@ if ('speechSynthesis' in window) {
   };
   document.addEventListener('pointerdown', debloquer, { once: true });
 }
+/* ---------- Bouton son 🔊/🔇 (à côté de la flamme) ----------
+   Muet, rien n'est envoyé au moteur vocal — on ne compte pas sur volume = 0,
+   que tous les navigateurs ne respectent pas. Mais les dialogues et le
+   shadowing enchaînent sur onend : on le déclenche donc nous-mêmes après une
+   durée estimée, pour que ces parcours avancent comme si la phrase avait été
+   lue. cancel() annule aussi ces lectures fantômes. */
+let muetsEnCours = [], muetRappel = 0;
+if ('speechSynthesis' in window) {
+  const ss = window.speechSynthesis;
+  const speakVrai = ss.speak.bind(ss), cancelVrai = ss.cancel.bind(ss);
+  ss.speak = u => {
+    if (!S.muted) return speakVrai(u);
+    const txt = (u && u.text) || '';
+    if (txt.trim() && Date.now() - muetRappel > 12000) {
+      muetRappel = Date.now();
+      toast('Son coupé 🔇 — touche le haut-parleur pour le réactiver');
+    }
+    const ms = Math.max(350, txt.length * 62 / ((u && u.rate) || 1));
+    const t = setTimeout(() => {
+      muetsEnCours = muetsEnCours.filter(x => x !== t);
+      if (u && typeof u.onend === 'function') u.onend({ utterance: u });
+    }, ms);
+    muetsEnCours.push(t);
+  };
+  ss.cancel = () => { muetsEnCours.forEach(clearTimeout); muetsEnCours = []; cancelVrai(); };
+}
+function majBoutonSon() {
+  const b = document.getElementById('mutebtn');
+  if (!b) return;
+  const muet = !!S.muted, lib = muet ? 'Réactiver le son' : 'Couper le son';
+  b.textContent = muet ? '🔇' : '🔊';
+  b.classList.toggle('off', muet);
+  b.setAttribute('aria-pressed', muet ? 'true' : 'false');
+  b.setAttribute('aria-label', lib);
+  b.title = lib;
+}
+function toggleMute() {
+  S.muted = !S.muted;
+  save();
+  if (S.muted) { if ('speechSynthesis' in window) stopSpeak(); }   // coupe aussi la phrase en cours
+  else if ('speechSynthesis' in window) {
+    // iOS : si le son était coupé au premier contact, le moteur n'a jamais été
+    // déverrouillé — on le fait ici, pendant le geste.
+    try { const u = new SpeechSynthesisUtterance(''); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
+  }
+  majBoutonSon();
+  toast(S.muted ? 'Son coupé 🔇' : 'Son activé 🔊');
+}
+majBoutonSon();
 function voixDispo() { return ('speechSynthesis' in window) && speechSynthesis.getVoices().some(estES); }
 function audioRate(base) { return base * (S.slowAudio ? 0.78 : 1); }
 function prepare(texte, spk) {
