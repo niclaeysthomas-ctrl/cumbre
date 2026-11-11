@@ -28,11 +28,16 @@ const DEFAULT = {
   history: [],          // [{ts, date, total, L, R, kind, diff, mins}]
   trans: {},            // index -> état SRS-lite des traductions
   transDone: 0,         // total de phrases travaillées
-  daily: { date: todayStr(), cards: 0, trans: 0, study: 0, pron: 0, conj: 0, credited: 0 }, // objectif du jour
+  daily: { date: todayStr(), cards: 0, trans: 0, study: 0, pron: 0, conj: 0, deb: 0, lec: 0, typed: 0, credited: 0 }, // objectif du jour
   pronDays: 0,          // jours où la session de prononciation a été faite
   conjDone: 0,          // total de verbes conjugués (validés)
   conjPerfect: 0,       // total de verbes conjugués sans faute (6/6)
   conjState: null,      // { date, done[3], score[3], ans[3][6] } — défi conjugaison du jour
+  debState: null,       // { date, done[2], score[2], ans[2][7] } — verbes à affaiblissement du jour
+  debDone: 0,           // total de verbes à affaiblissement validés
+  debPerfect: 0,        // dont sans faute (7/7)
+  lecDay: null,         // { date, id } — la lecture tirée pour aujourd'hui, figée pour la journée
+  typeN: 50,            // nb de cartes du jour à RAPPEL TAPÉ (production) avant de repasser en rapide
   mistakes: {},         // erreurs à rejouer (clé -> {kind,q,opts,correct,expl,cat,audio,box})
   register: {},         // SRS-lite du module Espagnol soutenu
   redaccion: {},        // expression écrite : id -> {text, done, ts}
@@ -50,9 +55,26 @@ const DEFAULT = {
 };
 
 // Objectifs quotidiens
-let GOAL_CARDS = 20, GOAL_TRANS = 5; const GOAL_CONJ = 3;
+let GOAL_CARDS = 20, GOAL_TRANS = 5; const GOAL_CONJ = 3, GOAL_DEB = 2;
+/* 2026-11-09 — LE PILIER DU JOUR ALTERNE. Conjuguer 3 verbes tirés au hasard
+   TOUS LES JOURS coûtait 18 formes quotidiennes pour un rendement faible (le
+   futur et le conditionnel sont réguliers : on les tape sans rien apprendre).
+   Désormais, un jour sur deux :
+     · jours pairs   → LECTURA del día : texte + glossaire + questions ;
+     · jours impairs → 2 VERBOS DÉBILES : les verbes à affaiblissement, pris
+       là où le radical s'affaiblit pour de bon (pidió, durmiera, sintamos).
+   Le conjugueur à 3 verbes n'est pas supprimé : il passe en entraînement
+   libre, sans obligation. */
+function dayKind() { return daySeed() % 2 === 0 ? 'lectura' : 'debiles'; }
+function dayKindLabel(k) { return k === 'lectura' ? '📖 lecture du jour' : '🔩 verbes à affaiblissement'; }
+function dayPillarDone() {
+  resetDailyIfNeeded();
+  return dayKind() === 'lectura' ? (S.daily.lec ? 1 : 0)
+                                 : Math.min(1, (S.daily.deb || 0) / GOAL_DEB);
+}
 /* Régimes d'intensité : pilotent le VOLUME quotidien (cartes à réviser, phrases à
-   traduire, nouvelles cartes/jour). La conjugaison reste à 3 verbes (module à taille fixe). */
+   traduire, nouvelles cartes/jour). Le pilier du jour (lecture / verbes à
+   affaiblissement) garde sa taille fixe : c'est un socle, pas un volume. */
 const REGIMES = {
   tranquilo: { emoji: '🌱', name: 'Tranquilo', cards: 100, trans: 6,  neu: 100, wave: 25, desc: "Le plancher : 100 cartes par jour, même les jours pris." },
   rapido:    { emoji: '🔥', name: 'Rápido',    cards: 150, trans: 10, neu: 150, wave: 30, desc: "Le bon rythme pour avancer vite et tenir dans la durée." },
@@ -67,9 +89,10 @@ const DEFAULT_REGIME = 'rapido';
 function currentRegime() { const k = S.regime === 'atope' ? 'intensivo' : S.regime; return REGIMES[k] || REGIMES[DEFAULT_REGIME]; }
 function dailyCardCap() { return Math.min(DAILY_CAP, currentRegime().cards); }
 function applyRegime() { const r = currentRegime(); GOAL_CARDS = r.cards; GOAL_TRANS = r.trans; NEW_PER_DAY = r.neu; }
+function setTypeN(v) { S.typeN = v; save(); toast(v ? `✍️ ${v} cartes tapées par jour` : 'Rappel tapé désactivé'); renderAnkiHome(); }
 function setRegime(k) { if (!REGIMES[k]) return; S.regime = k; save(); applyRegime(); toast(REGIMES[k].emoji + ' Intensité : ' + REGIMES[k].name); render(); }
 function resetDailyIfNeeded() {
-  if (!S.daily || S.daily.date !== todayStr()) S.daily = { date: todayStr(), cards: 0, trans: 0, study: 0, pron: 0, conj: 0 };
+  if (!S.daily || S.daily.date !== todayStr()) S.daily = { date: todayStr(), cards: 0, trans: 0, study: 0, pron: 0, conj: 0, deb: 0, lec: 0, typed: 0 };
 }
 function bumpDaily(field, n) { resetDailyIfNeeded(); S.daily[field] = (S.daily[field] || 0) + (n || 1); save(); checkDailyDone(); }
 function markStudy() { resetDailyIfNeeded(); S.daily.study = 1; save(); checkDailyDone(); }
@@ -92,7 +115,7 @@ function dailyProgress() {
   const t = Math.min(1, S.daily.trans / GOAL_TRANS);
   const s = S.daily.study ? 1 : 0;
   const p = S.daily.pron ? 1 : 0;
-  const j = Math.min(1, (S.daily.conj || 0) / GOAL_CONJ);
+  const j = dayPillarDone();
   return { c, t, s, p, j, pct: Math.round((c + t + s + p + j) / 5 * 100), done: (c >= 1 && t >= 1 && s >= 1 && p >= 1 && j >= 1) };
 }
 function checkDailyDone() {
@@ -218,7 +241,7 @@ function dueCardsAll() {
   const rev = [];         // cartes déjà introduites et dues
   for (const i in S.cards) {
     const c = S.cards[i];
-    if (c.introduced && c.due <= now) rev.push(+i);
+    if (c.introduced && !c.susp && c.due <= now) rev.push(+i);
   }
   return rev;
 }
@@ -302,13 +325,13 @@ function newAvailable(unlimited) {
   const out = [];
   for (const i of VOCAB_ORDER) {
     if (out.length >= cap) break;
-    if (!S.cards[i] || !S.cards[i].introduced) out.push(i);
+    if (!S.cards[i] || (!S.cards[i].introduced && !S.cards[i].susp)) out.push(i);
   }
   return out;
 }
 function totalUnlearned() {
   let n = 0;
-  for (const i of VOCAB_ORDER) if (!S.cards[i] || !S.cards[i].introduced) n++;
+  for (const i of VOCAB_ORDER) if (!S.cards[i] || (!S.cards[i].introduced && !S.cards[i].susp)) n++;
   return n;
 }
 /* Taille d'une vague en mode sans plafond : elle suit l'intensité, sinon il faut
@@ -329,6 +352,7 @@ function buildThemeQueue(theme) {
   for (let i = 0; i < VOCAB.length; i++) {
     if (VOCAB[i][3] !== theme) continue;
     const c = S.cards[i];
+    if (c && c.susp) continue;                       /* sangsue mise de côté */
     if (c && c.introduced) { if (c.due <= now) due.push(i); }
     else news.push(i);
   }
@@ -348,7 +372,7 @@ function buildReviseQueue(theme) {
   const now = Date.now(), all = [];
   for (const k in S.cards) {
     const i = +k, c = S.cards[k];
-    if (!c || !c.introduced || !VOCAB[i]) continue;
+    if (!c || !c.introduced || c.susp || !VOCAB[i]) continue;
     if (theme && VOCAB[i][3] !== theme) continue;
     all.push([i, cardRetrNow(c, now), c.lapses || 0]);
   }
@@ -403,6 +427,114 @@ function fsrsSchedule(c, rating, now) {
 }
 
 // rating: 0 again, 1 hard, 2 good, 3 easy
+/* ============================================================
+   SANGSUES — la carte que tu rates depuis des semaines. Sans garde-fou, elle
+   revient indéfiniment, mange la session et sape le moral : dans un deck de
+   2000 mots, une poignée de sangsues suffit à pourrir la journée.
+   Au 6e oubli, on s'arrête et on tranche : lui donner un truc à toi (de loin
+   le plus efficace — c'est la mémoire qui a besoin d'un crochet, pas d'une
+   répétition de plus), la mettre de côté, ou assumer de continuer.
+   Puis on re-propose tous les 4 oublis suivants si rien n'a changé.
+   ============================================================ */
+const LEECH_AT = 6;
+function isLeech(c) { return !!c && (c.lapses || 0) >= LEECH_AT; }
+function leechMoment(c) {
+  if (!isLeech(c) || c.susp) return false;
+  return (c.lapses || 0) >= Math.max(LEECH_AT, (c.lseen || 0) + 4);
+}
+function leechList() {
+  const out = [];
+  for (const k in S.cards) {
+    const i = +k, c = S.cards[k];
+    if (!VOCAB[i] || !c) continue;
+    if (c.susp || isLeech(c)) out.push(i);
+  }
+  return out.sort((a, b) => (S.cards[b].lapses || 0) - (S.cards[a].lapses || 0));
+}
+/* Retour après décision : la session de révision si elle tourne encore,
+   sinon la page Cartes (on peut arriver ici depuis la liste des sangsues). */
+function leechBack(retour) {
+  if (retour === 'liste') return renderLeeches();
+  if (R && R.queue) return renderCard();
+  setView('anki');
+}
+function leechAck(i) { const c = cardState(i); c.lseen = c.lapses || 0; S.cards[i] = c; save(); }
+function leechSuspend(i, retour) {
+  const c = cardState(i); c.susp = true; c.lseen = c.lapses || 0; S.cards[i] = c; save();
+  if (R && R.queue) R.queue = R.queue.filter((x, k) => x !== i || k < R.pos);
+  toast('⏸️ « ' + VOCAB[i][0] + ' » mise de côté');
+  leechBack(retour);
+}
+function leechRevive(i) {
+  const c = cardState(i); c.susp = false; c.lseen = c.lapses || 0;
+  c.interval = 0; c.due = Date.now(); S.cards[i] = c; save();
+  toast('▶️ « ' + VOCAB[i][0] + ' » revient dans le paquet');
+  renderLeeches();
+}
+function leechSaveNote(i, retour) {
+  const el = document.getElementById('lnote');
+  const v = el ? el.value.replace(/[<>]/g, '').trim().slice(0, 240) : '';
+  const c = cardState(i);
+  if (v) c.lnote = v; else delete c.lnote;
+  c.lseen = c.lapses || 0; S.cards[i] = c; save();
+  toast(v ? '🔗 Truc enregistré — il s\'affichera au dos' : 'Truc effacé');
+  leechBack(retour);
+}
+function renderLeechStop(i) {
+  window.scrollTo(0, 0);
+  const c = cardState(i), v = VOCAB[i];
+  app.innerHTML = `
+    <div class="card" style="border-color:var(--bad)">
+      <h2>⚠️ Cette carte te résiste</h2>
+      <div class="sub">Tu l'as oubliée <b style="color:var(--bad)">${c.lapses} fois</b>. À ce stade, la répéter encore ne sert plus à rien : ce n'est pas le nombre de passages qui manque, c'est un <b style="color:var(--txt)">crochet</b> pour l'accrocher. On s'arrête trente secondes.</div>
+    </div>
+    <div class="card center">
+      <div style="font-size:26px;font-weight:800">${v[0]}</div>
+      <div class="sub mt" style="font-size:16px;color:var(--txt)">${v[1]}</div>
+      <div class="sub mt" style="font-style:italic">“${v[2] || ''}”</div>
+    </div>
+    <div class="card" style="border-color:var(--good)">
+      <h2 style="font-size:16px">🔗 Donne-lui un truc à toi</h2>
+      <div class="sub">Une image, un rapprochement sonore, une phrase de ta vie — n'importe quoi de <b style="color:var(--txt)">personnel</b> et de concret. C'est ce qui débloque une sangsue, pas une 7<sup>e</sup> répétition. Ça s'affichera au dos de la carte.</div>
+      <textarea id="lnote" class="transinput mt" rows="2" placeholder="ex. « desván » → DESsus, VAN… le grenier au-dessus du van">${escapeHtml(c.lnote || '')}</textarea>
+      <button class="btn" onclick="leechSaveNote(${i})">Enregistrer et continuer</button>
+    </div>
+    <div class="card">
+      <h2 style="font-size:16px">⏸️ Ou mets-la de côté</h2>
+      <div class="sub">Elle sort du paquet : plus de révisions, plus de culpabilité. <b style="color:var(--txt)">Rien n'est perdu</b> — tu la retrouves dans Cartes › Sangsues et tu la réactives quand tu veux.</div>
+      <button class="btn sec mt" onclick="leechSuspend(${i})">Mettre « ${v[0]} » de côté</button>
+    </div>
+    <button class="btn ghost mt" onclick="leechAck(${i});leechBack()">Continuer comme ça — on en reparle dans 4 oublis</button>
+  `;
+}
+function renderLeeches() {
+  window.scrollTo(0, 0);
+  const list = leechList();
+  const sus = list.filter(i => S.cards[i].susp);
+  const act = list.filter(i => !S.cards[i].susp);
+  const row = (i) => {
+    const c = S.cards[i], v = VOCAB[i];
+    return `<div class="vrow">
+      <button class="spk sm" onclick="speak(VOCAB[${i}][0])" title="Écouter">🔊</button>
+      <div class="vinfo"><div class="ven">${escapeHtml(v[0])}</div><div class="vfr">${escapeHtml(v[1])}</div>
+        ${c.lnote ? `<div class="sub" style="font-size:12px;color:var(--good)">🔗 ${escapeHtml(c.lnote)}</div>` : ''}</div>
+      <div class="vmeta"><span class="pill warn">${c.lapses || 0} oublis</span>
+        ${c.susp ? `<button class="segchip" style="padding:2px 8px" onclick="leechRevive(${i})">▶️ réactiver</button>`
+                 : `<button class="segchip" style="padding:2px 8px" onclick="leechSuspend(${i},'liste')">⏸️ de côté</button>`}</div>
+    </div>`;
+  };
+  app.innerHTML = `
+    <button class="btn ghost" style="width:auto;padding:8px 14px;margin-bottom:12px" onclick="setView('anki')">‹ Cartes</button>
+    <div class="card" style="border-color:${list.length ? 'var(--bad)' : 'var(--good)'}">
+      <h2>🪤 Sangsues</h2>
+      <div class="sub">Les mots qui reviennent sans jamais tenir : <b style="color:var(--txt)">${LEECH_AT} oublis ou plus</b>. Une poignée de ces cartes suffit à plomber une session. Donne-leur un truc, ou mets-les de côté — les laisser tourner est le seul mauvais choix.</div>
+    </div>
+    ${act.length ? `<div class="sub mb" style="padding-left:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12px">Dans le paquet · ${act.length}</div>${act.map(row).join('')}` : ''}
+    ${sus.length ? `<div class="sub mb mt" style="padding-left:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12px">Mises de côté · ${sus.length}</div>${sus.map(row).join('')}` : ''}
+    ${list.length ? '' : '<div class="card center"><div class="sub">Aucune sangsue pour l\'instant — rien ne te résiste au point de bloquer. 👌</div></div>'}
+  `;
+}
+
 function rateCard(i, rating) {
   const c = cardState(i);
   // vraie révision, À L'HEURE (pour le diagnostic) : une révision anticipée (« Revoir »)
@@ -490,9 +622,17 @@ function refreshHeader() {
 /* ============================================================
    LECTURA DEL DÍA — textes C1-C2 avec aides à la compréhension
    ============================================================ */
-function lecOfToday(){ const doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/864e5);
+/* Le texte du jour est TIRÉ UNE FOIS puis figé (S.lecDay) : sans ça, finir sa
+   lecture faisait basculer « celle du jour » sur le texte non lu suivant — la
+   tuile repassait à « ! » juste après l'avoir lue. */
+function lecOfToday(){
+  const t=todayStr();
+  if(S.lecDay && S.lecDay.date===t){ const l=LECTURAS.find(x=>x.id===S.lecDay.id); if(l) return l; }
+  const doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/864e5);
   const nuevos=LECTURAS.filter(l=>!lecDone(l.id)); const pool=nuevos.length?nuevos:LECTURAS;  /* priorité aux textes non lus */
-  return pool[doy%pool.length]; }
+  const l=pool[doy%pool.length];
+  S.lecDay={date:t, id:l.id}; save();
+  return l; }
 function lecDone(id){ return S.lecturas && S.lecturas[id]; }
 let LEC=null;
 function renderLecturaHome(){
@@ -652,8 +792,12 @@ function lecAnswer(qi,oi){
   if(oi===a) LEC.correct++;
   addXp(oi===a?3:1);
   if([...document.querySelectorAll('.lq')].every(b=>b.dataset.answered)){
-    if(!S.lecturas) S.lecturas={}; S.lecturas[LEC.id]=true; markStudy(); save();
-    toast('📖 ¡Lectura terminada! '+LEC.correct+'/'+LEC.preguntas.length);
+    if(!S.lecturas) S.lecturas={}; S.lecturas[LEC.id]=true;
+    resetDailyIfNeeded();
+    const premiere=!S.daily.lec; S.daily.lec=1;          /* valide le pilier des jours de lecture */
+    markStudy(); save(); checkDailyDone(); checkAchievements();
+    toast('📖 ¡Lectura terminada! '+LEC.correct+'/'+LEC.preguntas.length
+      + (premiere && dayKind()==='lectura' ? ' — pilier du jour validé 🏆' : ''));
   }
 }
 
@@ -692,6 +836,8 @@ function render() {
   if (view === 'charla' && typeof renderCharlaHome === 'function') return renderCharlaHome();
   if (view === 'redaccion') return renderRedaccionHome();
   if (view === 'conj') return renderConjHome();
+  if (view === 'debiles') return renderDebilesHome();
+  if (view === 'sangsues') return renderLeeches();
   if (view === 'afondo') return renderAfondoHome();
   if (view === 'idiom') return renderIdiomHome();
   if (view === 'exam') return renderExamHome();
@@ -726,6 +872,8 @@ const ACHIEVEMENTS = [
   { id: 'pron7', ic: '👅', title: 'Lengua de trapo', desc: '7 sessions de prononciation', test: () => (S.pronDays || 0) >= 7 },
   { id: 'conj25', ic: '🔩', title: 'Conjugueur', desc: '25 verbes conjugués', test: () => (S.conjDone || 0) >= 25 },
   { id: 'conj100', ic: '⚙️', title: 'Machine à conjuguer', desc: '100 verbes conjugués', test: () => (S.conjDone || 0) >= 100 },
+  { id: 'deb20', ic: '🔻', title: 'Radical affaibli', desc: '20 verbes à affaiblissement', test: () => (S.debDone || 0) >= 20 },
+  { id: 'deb80', ic: '🧱', title: 'Plus un piège', desc: '80 verbes à affaiblissement', test: () => (S.debDone || 0) >= 80 },
   { id: 'redac3', ic: '📝', title: 'Redactor', desc: '3 rédactions travaillées', test: () => redaccionDone() >= 3 },
   { id: 'idiom40', ic: '💬', title: 'Así se dice', desc: '40 fiches idiomatiques vues', test: () => idiomSeenCount() >= 40 },
   { id: 'sup25', ic: '🔝', title: '¡Buenísimo!', desc: '25 superlatifs justes', test: () => ((S.idiom && S.idiom.supOk) || 0) >= 25 },
@@ -790,7 +938,9 @@ function coachAdvice() {
   const dp = dailyProgress();
   if (due > 0) return { title: 'Priorité : réviser', msg: `${due} carte(s) sont dues. Les revoir à temps, c'est là que la mémoire se joue.`, btn: 'Réviser', action: 'startReview(false)' };
   if (mistakeCount() >= 3) return { title: 'Corrige tes erreurs', msg: `Tu as ${mistakeCount()} question(s) déjà ratée(s) en attente. Les rejouer jusqu'à les maîtriser, c'est le plus direct vers le sans-faute.`, btn: 'Revoir mes erreurs', action: 'startMistakes()' };
-  if (dp.j < 1) return { title: 'Conjugaison obligatoire', msg: `${GOAL_CONJ} verbes du jour à conjuguer en entier — c'est là que la grammaire devient un réflexe. Pas d'esquive.`, btn: 'Conjuguer', action: "setView('conj')" };
+  if (dp.j < 1) return dayKind() === 'lectura'
+    ? { title: 'La lecture du jour', msg: `« ${lecOfToday().title} » — le texte, le glossaire, puis les questions. Un jour sur deux, le pilier c'est de l'espagnol réel : c'est ce qui fait décoller à ce niveau.`, btn: 'Lire', action: "setView('lectura')" }
+    : { title: 'Verbes à affaiblissement', msg: `${GOAL_DEB} verbes du jour, pris là où le radical s'affaiblit : pidió, durmiera, sintamos. C'est le trou noir du C1 — on le bouche.`, btn: 'Conjuguer', action: "setView('debiles')" };
   if (dp.t < 1 && buildTransQueue('Tous').length) return { title: 'Passe à la production', msg: 'Traduire des phrases rend ta grammaire active — le vrai déclic bilingue.', btn: 'Traduire', action: "setView('traduire')" };
   if (!dp.p) return { title: 'Travaille ta bouche', msg: 'La session de prononciation du jour : le R roulé surtout. 5 minutes qui changent ton accent.', btn: 'Prononcer', action: "setView('pron')" };
   if (!dp.s) return { title: 'Un peu d\'étude', msg: 'Une session d\'écoute ou une leçon de grammaire pour valider ta journée.', btn: 'Écouter', action: "setView('listen')" };
@@ -832,11 +982,14 @@ function renderHome() {
           if (g <= 0) return goalLine(true, 'Réviser des cartes', 'rien de dû ✓');
           return goalLine(dp.c >= 1, 'Réviser des cartes', `${Math.min(S.daily.cards, g)}/${g}`
             + (g < dailyCardCap() ? ` <span style="color:var(--muted);font-size:11px">(tout ce qui est dû)</span>` : '')); })()}
-        ${goalLine(dp.j >= 1, 'Conjuguer 3 verbes', `${Math.min(S.daily.conj || 0, GOAL_CONJ)}/${GOAL_CONJ}`)}
+        ${dayKind() === 'lectura'
+          ? goalLine(dp.j >= 1, 'Lire la lectura du jour', dp.j >= 1 ? 'lue ✓' : '0/1')
+          : goalLine(dp.j >= 1, 'Verbes à affaiblissement', `${Math.min(S.daily.deb || 0, GOAL_DEB)}/${GOAL_DEB}`)}
         ${goalLine(dp.p >= 1, 'Prononciation (R · ñ)', dp.p ? 'fait' : '0/1')}
         ${goalLine(dp.t >= 1, 'Traduire des phrases', `${Math.min(S.daily.trans, GOAL_TRANS)}/${GOAL_TRANS}`)}
         ${goalLine(dp.s >= 1, 'Étudier (grammaire/écoute)', dp.s ? 'fait' : '0/1')}
-        <div class="sub mt" style="font-size:12px;color:var(--muted)">Intensité : <b style="color:var(--txt)">${currentRegime().emoji} ${currentRegime().name}</b> · <span style="color:var(--accent);cursor:pointer" onclick="setView('anki')">régler ›</span></div>
+        <div class="sub mt" style="font-size:12px;color:var(--muted)">Pilier du jour : <b style="color:var(--txt)">${dayKindLabel(dayKind())}</b> · demain ${dayKindLabel(dayKind() === 'lectura' ? 'debiles' : 'lectura')}</div>
+        <div class="sub" style="font-size:12px;color:var(--muted)">Intensité : <b style="color:var(--txt)">${currentRegime().emoji} ${currentRegime().name}</b> · <span style="color:var(--accent);cursor:pointer" onclick="setView('anki')">régler ›</span></div>
       </div>
     </div>`;
 
@@ -867,12 +1020,14 @@ function renderHome() {
 
     <div class="sub mb" style="padding-left:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12px">À faire aujourd'hui</div>
 
-    ${(typeof LECTURAS !== 'undefined') ? `
-    <button class="tile" style="${lecDone(lecOfToday().id)?'':'border-color:var(--accent)'}" onclick="setView('lectura')">
+    ${(typeof LECTURAS !== 'undefined') ? (() => {
+      const hoy = lecOfToday(), ok = !!S.daily.lec, pil = dayKind() === 'lectura';
+      return `
+    <button class="tile" style="${!ok && pil ? 'border-color:var(--accent)' : ''}" onclick="setView('lectura')">
       <div class="ic a">📖</div>
-      <div class="body"><div class="t">Lecture du jour · ${lecOfToday().level}</div><div class="d">« ${lecOfToday().title} » — texte + aides</div></div>
-      <div class="badge ${lecDone(lecOfToday().id)?'':'zero'}">${lecDone(lecOfToday().id)?'✓':'!'}</div>
-    </button>` : ''}
+      <div class="body"><div class="t">Lecture du jour · ${hoy.level}${pil ? ' · <span style="color:var(--accent)">pilier du jour</span>' : ''}</div><div class="d">« ${hoy.title} » — texte + glossaire + questions</div></div>
+      <div class="badge ${ok ? '' : 'zero'}">${ok ? '✓' : '!'}</div>
+    </button>`; })() : ''}
 
     ${mistakeCount() > 0 ? `
     <button class="tile" onclick="startMistakes()" style="border-color:var(--bad)">
@@ -887,10 +1042,22 @@ function renderHome() {
       <div class="badge ${(due+news)===0?'zero':''}">${due + news}</div>
     </button>
 
-    <button class="tile" style="${dp.j>=1?'':'border-color:var(--blue)'}" onclick="setView('conj')">
+    ${dayKind() === 'debiles' ? `
+    <button class="tile" style="${dp.j>=1?'':'border-color:var(--blue)'}" onclick="setView('debiles')">
       <div class="ic g">🔩</div>
-      <div class="body"><div class="t">Conjugaison du jour</div><div class="d">3 verbes · 3 temps · à conjuguer en entier</div></div>
-      <div class="badge ${dp.j>=1?'':'zero'}">${Math.min(S.daily.conj||0,GOAL_CONJ)}/${GOAL_CONJ}</div>
+      <div class="body"><div class="t">Verbes à affaiblissement · <span style="color:var(--accent)">pilier du jour</span></div><div class="d">${GOAL_DEB} verbes · pidió · durmiera · sintamos</div></div>
+      <div class="badge ${dp.j>=1?'':'zero'}">${Math.min(S.daily.deb||0,GOAL_DEB)}/${GOAL_DEB}</div>
+    </button>` : `
+    <button class="tile" onclick="setView('debiles')">
+      <div class="ic g">🔩</div>
+      <div class="body"><div class="t">Verbes à affaiblissement</div><div class="d">Libre aujourd'hui — c'est le pilier de demain</div></div>
+      <div class="badge zero">＋</div>
+    </button>`}
+
+    <button class="tile" onclick="setView('conj')">
+      <div class="ic g">⚙️</div>
+      <div class="body"><div class="t">Conjugueur libre</div><div class="d">3 verbes · 3 temps tirés au hasard · en entier (plus obligatoire)</div></div>
+      <div class="badge zero">${Math.min(S.daily.conj||0,GOAL_CONJ)}/${GOAL_CONJ}</div>
     </button>
 
     <button class="tile" style="${dp.p>=1?'':'border-color:var(--accent)'}" onclick="setView('pron')">
@@ -1082,6 +1249,7 @@ function revealMixTrad() {
   const last = MIX.i === MIX.items.length - 1;
   app.innerHTML = `
     <div class="qmeta"><span>🔀 Mix · traduction — ${t.cat}</span><span>${MIX.i + 1} / ${MIX.items.length}</span></div>
+    ${ctxHtml(t)}
     <div class="transfr small">${t.fr}</div>
     ${mineHtml}
     <div class="trans-model">
@@ -1089,7 +1257,7 @@ function revealMixTrad() {
       <div class="en">${t.en}</div>
       ${altHtml}
     </div>
-    <div class="expl" style="border-color:var(--purple)"><b>${t.point}</b><br>${t.note}</div>
+    <div class="expl" style="border-color:var(--purple)"><b>${t.point}</b>${regPill(t)}<br>${t.note}</div>
     <div class="sub center mt mb">Sans regarder, tu l'avais ?</div>
     <div class="row2">
       <button class="btn sec" style="color:var(--bad)" onclick="rateMixTrad(0)">Raté</button>
@@ -1149,11 +1317,13 @@ function renderGrammarList() {
         : `<div class="sub mt" style="color:var(--dim)">🔒 Valide au moins une leçon pour débloquer le mix.</div>`}
     </div>`;
   const dpg = dailyProgress();
+  const pilDeb = dayKind() === 'debiles';
   const conjCard = `
-    <div class="card" style="border-color:${dpg.j >= 1 ? 'var(--good)' : 'var(--accent)'}">
-      <h2 style="font-size:16px">🔩 Conjugaison du jour ${dpg.j >= 1 ? '✅' : ''}</h2>
-      <div class="sub">Obligatoire : <b style="color:var(--txt)">3 verbes</b> tirés à <b style="color:var(--txt)">3 temps différents</b>, à conjuguer <b style="color:var(--txt)">en entier</b> (les 6 personnes). Réguliers et irréguliers. Correction automatique, accents compris.</div>
-      <button class="btn mt" onclick="setView('conj')">${dpg.j >= 1 ? `Revoir · ${Math.min(S.daily.conj || 0, GOAL_CONJ)}/${GOAL_CONJ} fait` : `Conjuguer · ${Math.min(S.daily.conj || 0, GOAL_CONJ)}/${GOAL_CONJ}`}</button>
+    <div class="card" style="border-color:${pilDeb ? (dpg.j >= 1 ? 'var(--good)' : 'var(--accent)') : 'var(--blue)'}">
+      <h2 style="font-size:16px">🔩 Verbos débiles · l'affaiblissement ${pilDeb && dpg.j >= 1 ? '✅' : ''}</h2>
+      <div class="sub">${pilDeb ? '<b style="color:var(--accent)">Pilier du jour.</b> ' : '<b style="color:var(--txt)">Un jour sur deux.</b> '}Les verbes en <b style="color:var(--txt)">-ir</b> dont le radical s'affaiblit (e→i, o→u) là où on l'oublie : <b style="color:var(--txt)">pidió</b>, <b style="color:var(--txt)">durmiendo</b>, <b style="color:var(--txt)">sintamos</b>, <b style="color:var(--txt)">pidiera</b>. ${GOAL_DEB} verbes, les 6 personnes + le gérondif, accents compris.</div>
+      <button class="btn mt" onclick="setView('debiles')">${pilDeb ? `Conjuguer · ${Math.min(S.daily.deb || 0, GOAL_DEB)}/${GOAL_DEB}` : "S'entraîner librement"}</button>
+      <button class="btn sec mt" style="font-size:13px;padding:9px" onclick="setView('conj')">⚙️ Conjugueur libre · 3 verbes au hasard${dpg && S.daily.conj ? ` · ${Math.min(S.daily.conj, GOAL_CONJ)}/${GOAL_CONJ} aujourd'hui` : ''}</button>
     </div>`;
   const tensesCard = `
     <div class="card" style="border-color:var(--blue)">
@@ -1515,13 +1685,27 @@ function renderAnkiHome() {
       <div class="sub">Règle ton volume du jour. Monte-le quand tu veux tout donner, baisse-le les jours pris — c'est toi qui tiens le curseur.</div>
       <div class="mt" style="display:flex;flex-wrap:wrap;gap:8px">${regChips}</div>
       <div class="sub mt"><b style="color:var(--txt)">${rg.emoji} ${rg.name}</b> — ${rg.desc}</div>
-      <div class="sub mt" style="color:var(--muted)"><b style="color:var(--txt)">${dailyCardCap()}</b> cartes/jour max · <b style="color:var(--txt)">${rg.trans}</b> traductions · <b style="color:var(--txt)">${GOAL_CONJ}</b> verbes · vagues de <b style="color:var(--txt)">${rg.wave}</b></div>
+      <div class="sub mt" style="color:var(--muted)"><b style="color:var(--txt)">${dailyCardCap()}</b> cartes/jour max (dont <b style="color:var(--txt)">${typeQuota()}</b> tapées) · <b style="color:var(--txt)">${rg.trans}</b> traductions · pilier : <b style="color:var(--txt)">${dayKindLabel(dayKind())}</b> · vagues de <b style="color:var(--txt)">${rg.wave}</b></div>
       ${(S.regime === 'atope' || S.regime === 'intensivo') ? `<div class="pill warn mt">Gros volume : chaque nouveau mot revient en révision quelques jours plus tard. Tiens le rythme, ou redescends d'un cran sans culpabiliser.</div>` : ''}
       <div class="sub mt" style="font-size:12px">Plafond dur : jamais plus de <b style="color:var(--txt)">${DAILY_CAP}</b> cartes par jour, révisions en retard comprises.</div>
     </div>
+    <div class="card" style="border-color:var(--good)">
+      <h2 style="font-size:16px">✍️ Rappel tapé · les premières cartes du jour</h2>
+      <div class="sub">Les <b style="color:var(--txt)">${typeQuota()}</b> premières cartes de la journée se jouent en <b style="color:var(--txt)">production</b> : le français s'affiche, tu <b style="color:var(--txt)">écris l'espagnol</b>, je corrige (accents compris) et je choisis la note. Les suivantes repassent en mode rapide. Reconnaître un mot n'est pas savoir le sortir : c'est l'écrire qui le rend disponible quand tu parles.</div>
+      <div class="mt" style="display:flex;flex-wrap:wrap;gap:8px">
+        ${[0, 25, 50, 100].map(v => `<button class="segchip" style="${typeQuota() === v ? 'border-color:var(--good);color:var(--good);font-weight:800' : ''}" onclick="setTypeN(${v})">${v === 0 ? 'aucune' : v + ' cartes'}</button>`).join('')}
+      </div>
+      <div class="sub center mt" style="font-weight:700;color:${typedLeft() ? 'var(--muted)' : 'var(--good)'}">${Math.min(S.daily.typed || 0, typeQuota())}/${typeQuota()} tapées aujourd'hui${typedLeft() ? '' : ' ✓ — la suite est en mode rapide'}</div>
+    </div>
+    ${(() => { const ll = leechList(), su = ll.filter(i => S.cards[i].susp).length; return `
+    <div class="card" style="border-color:${ll.length ? 'var(--bad)' : 'var(--line)'}">
+      <h2 style="font-size:16px">🪤 Sangsues ${ll.length ? `· ${ll.length}` : ''}</h2>
+      <div class="sub">Les mots oubliés <b style="color:var(--txt)">${LEECH_AT} fois ou plus</b>. ${ll.length ? `${ll.length - su} encore dans le paquet${su ? `, ${su} mise(s) de côté` : ''}. Leur donner un truc personnel débloque ce qu'aucune répétition de plus ne débloquera.` : "Aucune pour l'instant — l'app t'arrêtera d'elle-même au 6<sup>e</sup> oubli d'un mot."}</div>
+      ${ll.length ? `<button class="btn sec mt" onclick="setView('sangsues')">Voir les ${ll.length} sangsue(s)</button>` : ''}
+    </div>`; })()}
     <div class="card">
       <h2>Cartes de vocabulaire</h2>
-      <div class="sub">Répétition espacée <b style="color:var(--txt)">FSRS</b> (l'algorithme moderne d'Anki), sens tiré <b style="color:var(--txt)">au hasard</b> 🇪🇸→🇫🇷 ou 🇫🇷→🇪🇸 : tu dois savoir <i>produire</i> le mot, pas juste le reconnaître. Objectif : de A2 à C1, du quotidien au registre soutenu.</div>
+      <div class="sub">Répétition espacée <b style="color:var(--txt)">FSRS</b> (l'algorithme moderne d'Anki). Les <b style="color:var(--txt)">${typeQuota()}</b> premières cartes du jour sont <b style="color:var(--txt)">tapées</b> (🇫🇷→🇪🇸, corrigées automatiquement), les suivantes en mode rapide avec le sens tiré au hasard. Objectif : de A2 à C1, du quotidien au registre soutenu.</div>
       <div class="row2 mt">
         <div><div class="logo" style="font-size:24px;color:var(--blue)">${due}</div><div class="sub">à réviser aujourd'hui</div></div>
         <div><div class="logo" style="font-size:24px;color:var(--accent)">${learnedCount()}<span style="font-size:15px;color:var(--muted)"> / ${VOCAB.length}</span></div><div class="sub">mots appris</div></div>
@@ -1757,6 +1941,87 @@ function filterVocab(q) {
 
 /* ---------- ANKI : session de révision ---------- */
 let R = null;
+/* ============================================================
+   RAPPEL TAPÉ — les N premières cartes du jour se jouent en PRODUCTION :
+   le français s'affiche, tu écris l'espagnol, la machine corrige et choisit
+   la note. Au-delà du quota, on repasse au mode rapide (retourner + s'auto-
+   noter), qui reste bien pour le volume mais surestime ce qu'on sait vraiment.
+   Reconnaître n'est pas produire : c'est produire qui fait « venir » le mot.
+   ============================================================ */
+function typeQuota() { return typeof S.typeN === 'number' ? S.typeN : 50; }
+function typedLeft() { resetDailyIfNeeded(); return Math.max(0, typeQuota() - (S.daily.typed || 0)); }
+/* comparaison tolérante : casse, ponctuation, article de tête, espaces */
+function normWord(s) {
+  return String(s == null ? '' : s).toLowerCase()
+    .replace(/[¡!¿?.,;:()"«»]/g, ' ').replace(/\s+/g, ' ').trim()
+    .replace(/^(el|la|los|las|un|una|unos|unas|al|del)\s+/, '');
+}
+function lev(a, b) {
+  const m = a.length, k = b.length;
+  if (!m || !k) return Math.max(m, k);
+  let prev = [...Array(k + 1).keys()], cur = new Array(k + 1);
+  for (let i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= k; j++)
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    const t = prev; prev = cur; cur = t;
+  }
+  return prev[k];
+}
+/* 'ok' · 'accent' (tout bon sauf les accents) · 'presque' (1-2 lettres) · 'non' */
+function typeVerdict(mine, good, aussi) {
+  const m = normWord(mine); if (!m) return 'vide';
+  const variantes = String(good).split(/\s*[\/,]\s*/).map(normWord).filter(Boolean);
+  // La forme que la phrase à trou réclamait compte comme juste (voir clozeFrame).
+  if (aussi) { const a = normWord(aussi); if (a && variantes.indexOf(a) < 0) variantes.push(a); }
+  if (variantes.indexOf(m) >= 0) return 'ok';
+  if (variantes.some(v => deaccent(v) === deaccent(m))) return 'accent';
+  const g = variantes[0] || normWord(good);
+  if (lev(deaccent(m), deaccent(g)) <= (g.length > 7 ? 2 : 1)) return 'presque';
+  return 'non';
+}
+const TYPE_GRADE = { ok: 2, accent: 1, presque: 1, non: 0 };
+function typedGiveUp() {
+  if (R.shown) return;
+  R.shown = true;
+  resetDailyIfNeeded(); S.daily.typed = (S.daily.typed || 0) + 1; save();
+  revealTyped('non', '');
+}
+function checkTyped() {
+  if (R.shown) return;
+  const el = document.getElementById('typein');
+  const mine = el ? el.value : '';
+  const v = typeVerdict(mine, VOCAB[R.queue[R.pos]][0], R.dir === 'fr2en' ? R.trouDit : '');
+  if (v === 'vide') { toast('Écris ta réponse — ou « Je ne sais pas »'); if (el) el.focus(); return; }
+  R.shown = true;
+  resetDailyIfNeeded(); S.daily.typed = (S.daily.typed || 0) + 1; save();
+  revealTyped(v, mine);
+}
+function revealTyped(v, mine) {
+  const i = R.queue[R.pos], good = VOCAB[i][0];
+  const back = document.getElementById('cardback'); if (back) back.classList.remove('hidden');
+  const zone = document.getElementById('typezone'); if (zone) zone.innerHTML = '';
+  speak(good);
+  const txt = {
+    ok: `<b style="color:var(--good)">✓ Exact.</b>`,
+    accent: `<b style="color:var(--accent)">≈ Les accents.</b> Tu avais « ${escapeHtml(mine)} » — à l'écrit du DELE, ça compte comme une faute.`,
+    presque: `<b style="color:var(--accent)">≈ Presque.</b> Tu avais « ${escapeHtml(mine)} ».`,
+    non: mine ? `<b style="color:var(--bad)">✗ Non.</b> Tu avais « ${escapeHtml(mine)} ».` : `<b style="color:var(--bad)">Pas trouvé.</b>`
+  }[v];
+  const hint = document.getElementById('taphint');
+  if (hint) { hint.classList.remove('tap'); hint.className = 'expl ' + (v === 'ok' ? 'ok' : 'no'); hint.innerHTML = txt; }
+  const g = TYPE_GRADE[v];
+  const second = v === 'ok'
+    ? `<button class="easy" onclick="doRate(3)">C'était facile<small>${nextDueLabel(i, 3)}</small></button>`
+    : `<button class="good" onclick="doRate(2)">Je l'avais<small>${nextDueLabel(i, 2)}</small></button>`;
+  document.getElementById('ratebar').innerHTML = `
+    <div class="srsrow" style="grid-template-columns:2fr 1fr">
+      <button class="${g === 2 ? 'good' : g === 1 ? 'hard' : 'again'}" onclick="doRate(${g})">Suivant →<small>${nextDueLabel(i, g)}</small></button>
+      ${second}
+    </div>
+    <div class="sub center" style="font-size:11.5px;margin-top:6px">Note choisie automatiquement d'après ta réponse${v === 'non' ? " — « Je l'avais » si tu avais écrit un autre mot juste" : ''}.</div>`;
+}
+
 function startReview(unlimited) {
   const queue = buildQueue(unlimited);
   if (queue.length === 0) { setView('anki'); toast('Aucune carte à réviser pour le moment 🎉'); return; }
@@ -1786,6 +2051,84 @@ function splitGloss(s) {
   }).replace(/\s{2,}/g, ' ').replace(/\s+([;,.])/g, '$1').trim();
   return { core: core || s, note: notes.join(' · ') };
 }
+/* ============================================================
+   LE MOT DANS SA PHRASE — on masque le mot cible dans son exemple et on
+   montre la phrase trouée AVANT la réponse. Le rappel est alors indicé par
+   la syntaxe (genre, préposition, collocation) et pas seulement par le sens :
+   c'est sous cette forme-là qu'un mot ressort quand on parle.
+   Rend '' si le mot est introuvable dans l'exemple (28 % des cartes) —
+   dans ce cas on n'affiche simplement pas de cadre.
+   ============================================================ */
+let CLOZE_CACHE = '';          // ce que le dernier trou masquait (accepté à la correction)
+const CLOZE_BLANK = '<span style="color:var(--accent);font-weight:800">______</span>';
+function clozeVariants(word) {
+  const out = [];
+  String(word).split(/\s*[\/,]\s*/).forEach(v => {
+    const w = v.replace(/\([^)]*\)/g, '').trim();
+    if (!w) return;
+    out.push(w);
+    const sansArt = w.replace(/^(el|la|los|las|un|una|unos|unas)\s+/i, '');
+    if (sansArt !== w) out.push(sansArt);
+  });
+  return out;
+}
+function clozeFrame(word, ex) {
+  if (!ex) return '';
+  const plat = deaccent(ex).toLowerCase(), variants = clozeVariants(word);
+  const spans = [];
+  const pousser = (a, b) => { if (!spans.some(sp => a < sp[1] && sp[0] < b)) spans.push([a, b]); };
+  const colle = (ch) => ch && /[a-zñ]/.test(ch);
+  for (const v of variants) {                       // 1) le mot tel quel — TOUTES ses occurrences
+    const pv = deaccent(v).toLowerCase(); if (!pv) continue;
+    let at = plat.indexOf(pv);
+    while (at >= 0) {
+      if (!colle(plat[at - 1]) && !colle(plat[at + pv.length])) pousser(at, at + pv.length);
+      at = plat.indexOf(pv, at + 1);
+    }
+  }
+  /* 2) forme fléchie : on compare les racines.
+     2026-11-11 — CE QUI ÉTAIT FAUX. On ne cherchait que le PLUS LONG mot de
+     l'expression. Pour « cobrar importancia », l'exemple « El tema cobró
+     importancia tras la crisis » ne donnait donc qu'un trou sur importancia,
+     et la phrase affichée était « El tema cobró ______ tras la crisis » : elle
+     réclamait un mot, alors que la correction attend l'expression entière.
+     Écrire « importancia » — la seule réponse que le trou autorisait — était
+     compté faux. Désormais on repère CHAQUE mot de l'expression et, s'ils
+     tombent côte à côte dans la phrase, on les masque d'un seul trou :
+     « El tema ______ tras la crisis ». Le trou demande enfin ce qui est noté. */
+  if (!spans.length) for (const v of variants) {
+    const toks = deaccent(v).toLowerCase().split(/\s+/)
+      .filter(w => w.replace(/[^a-zñ]/g, '').length >= 4);
+    if (!toks.length) continue;
+    const trouves = [];
+    for (const tok of toks) {
+      const racine = tok.slice(0, Math.max(4, tok.length - 3)).replace(/[^a-zñ]/g, '');
+      if (racine.length < 4) continue;
+      const re = new RegExp('(^|[^a-z])(' + racine + '[a-z]{0,4})(?![a-z])', 'gi');
+      const m = re.exec(plat);
+      if (m) trouves.push([m.index + m[1].length, m.index + m[1].length + m[2].length]);
+    }
+    if (!trouves.length) continue;
+    trouves.sort((a, b) => a[0] - b[0]);
+    const debut = trouves[0][0], fin = trouves[trouves.length - 1][1];
+    // Côte à côte (un petit mot de liaison peut s'intercaler : « tomar EN cuenta »)
+    // → un seul trou sur toute l'expression. Trop éloignés → on laisse chaque mot.
+    if (fin - debut <= (v.length + 12)) pousser(debut, fin);
+    else trouves.forEach(sp => pousser(sp[0], sp[1]));
+    break;
+  }
+  if (!spans.length) { CLOZE_CACHE = ''; return ''; }
+  spans.sort((a, b) => a[0] - b[0]);
+  let out = '', pos = 0;
+  for (const sp of spans) { out += escapeHtml(ex.slice(pos, sp[0])) + CLOZE_BLANK; pos = sp[1]; }
+  /* Ce que le trou cache, mot pour mot. La correction l'accepte aussi : quand la
+     phrase affiche « El tema ______ tras la crisis », écrire « cobró importancia »
+     est la bonne réponse à la question posée, même si la carte est lemmatisée en
+     « cobrar importancia ». Sans ça, le trou demandait une chose et la correction
+     en notait une autre. */
+  CLOZE_CACHE = spans.map(sp => ex.slice(sp[0], sp[1])).join(' ');
+  return out + escapeHtml(ex.slice(pos));
+}
 function renderCard() {
   if (R.pos >= R.queue.length) return finishReview();
   const i = R.queue[R.pos];
@@ -1795,31 +2138,45 @@ function renderCard() {
   // note affichée UNIQUEMENT au reveal : faux-amis (splitGloss) + éventuel 5ᵉ champ
   // explicite (ex. usage ser/estar d'un adjectif) — jamais d'indice au recto.
   const gloss = [frSplit.note, VOCAB[i][4] || ''].filter(Boolean).join('<br>');
+  const truc = (S.cards[i] && S.cards[i].lnote) ? `<div class="gloss" style="border-color:var(--good)">🔗 Ton truc : ${escapeHtml(S.cards[i].lnote)}</div>` : '';
   const isNew = !S.cards[i] || !S.cards[i].introduced;
-  // Sens tiré au hasard : produire l’espagnol OU le français
-  R.dir = Math.random() < 0.5 ? 'en2fr' : 'fr2en';
+  const trou = clozeFrame(en, ex);                 // la phrase à trou (vide si le mot est introuvable)
+  R.trouDit = trou ? CLOZE_CACHE : '';             // la forme exacte que ce trou réclame
+  // Les N premières cartes du jour : rappel TAPÉ, toujours en production (FR → ES).
+  // Ensuite : mode rapide, sens tiré au hasard.
+  R.typed = typedLeft() > 0;
+  R.dir = R.typed ? 'fr2en' : (Math.random() < 0.5 ? 'en2fr' : 'fr2en');
   const prompt = R.dir === 'en2fr' ? en : fr;
   const answer = R.dir === 'en2fr' ? fr : en;
-  const dirBadge = R.dir === 'en2fr' ? '🇪🇸 → 🇫🇷' : '🇫🇷 → 🇪🇸';
+  const dirBadge = R.typed ? '🇫🇷 → 🇪🇸 ✍️' : R.dir === 'en2fr' ? '🇪🇸 → 🇫🇷' : '🇫🇷 → 🇪🇸';
   const psize = prompt.length > 30 ? '19px' : prompt.length > 18 ? '24px' : '30px';
   const enEsc = en.replace(/'/g, "\\'");
   R.shown = false;
   app.innerHTML = `
-    <div class="qmeta"><span>${isNew ? '🆕 Nouvelle' : R.revise ? '🔁 Revoir' : '🔁 Révision'}</span><span>${R.pos + 1} / ${R.queue.length}</span></div>
-    <div class="flash" onclick="flip()">
+    ${R.typed ? `<div class="accbar" id="accbar">${['á','é','í','ó','ú','ñ','ü'].map(c => `<button onclick="conjInsert('${c}')">${c}</button>`).join('')}</div>` : ''}
+    <div class="qmeta"><span>${isNew ? '🆕 Nouvelle' : R.revise ? '🔁 Revoir' : '🔁 Révision'}${R.typed ? ' · ✍️ tapée' : ''}</span><span>${R.pos + 1} / ${R.queue.length}</span></div>
+    <div class="flash" ${R.typed ? '' : 'onclick="flip()"'}>
       <div class="theme">${theme} · <span style="color:var(--accent)">${dirBadge}</span></div>
       <div class="front" style="font-size:${psize}">${prompt}</div>
       <div id="cardback" class="hidden">
         <div class="back">${answer}</div>
         <div class="ex">“${ex}”</div>
         ${gloss ? `<div class="gloss">💡 ${gloss}</div>` : ''}
+        ${truc}
       </div>
-      <div id="taphint" class="tap">${R.dir === 'en2fr' ? 'Traduis en français' : 'Traduis en espagnol'} · touche pour révéler ▽</div>
+      ${(R.dir === 'fr2en' && trou) ? `<div style="font-size:15px;font-style:italic;color:var(--muted);margin:10px 14px 0;line-height:1.5">“${trou}”</div>` : ''}
+      <div id="taphint" class="tap">${R.typed ? `Écris-le en espagnol · ${typedLeft()} carte(s) tapée(s) restante(s) aujourd'hui` : R.dir === 'en2fr' ? 'Traduis en français' : 'Traduis en espagnol'}${R.typed ? '' : ' · touche pour révéler ▽'}</div>
     </div>
+    ${R.typed ? `<div id="typezone">
+      <input id="typein" class="transinput" style="min-height:0;text-align:center;font-size:20px" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" lang="es" placeholder="en español…" onfocus="conjFocus=this.id" onkeydown="if(event.key==='Enter'){event.preventDefault();checkTyped();}">
+      <button class="btn" onclick="checkTyped()">Corriger</button>
+      <button class="btn ghost" style="font-size:13px;padding:9px" onclick="typedGiveUp()">Je ne sais pas</button>
+    </div>` : ''}
     <button id="spk" class="spk ${R.dir === 'fr2en' ? 'hidden' : ''}" onclick="speak('${enEsc}');event.stopPropagation()" title="Écouter l'espagnol">🔊</button>
     <button class="cardmute" onclick="toggleCardMute();event.stopPropagation()">${S.cardMute ? '🔇 Son des cartes coupé · le réactiver' : '🔊 Son auto · le couper'}</button>
     <div id="ratebar"></div>
   `;
+  if (R.typed) { const el = document.getElementById('typein'); if (el) el.focus(); }
 }
 function flip() {
   if (R.shown) return;
@@ -1850,6 +2207,7 @@ function doRate(rating) {
   if (rating === 0) R.queue.splice(Math.min(R.pos + 5, R.queue.length), 0, i);
   R.pos++;
   touchDay();
+  if (rating === 0 && leechMoment(cardState(i))) return renderLeechStop(i);
   renderCard();
 }
 function finishReview() {
@@ -2753,6 +3111,7 @@ function renderTransHome() {
     <div class="card">
       <h2>Traduire · version ${dir}</h2>
       <div class="sub">Traduis la phrase (dans ta tête ou en l'écrivant), puis compare à une <b style="color:var(--txt)">correction idiomatique</b>. Chaque phrase entraîne un point précis : subjonctif, inversion, conditionnels mixtes, discours indirect… et du bon vocabulaire.</div>
+      <div class="sub mt" style="font-size:13px">Nouveau — la catégorie <b style="color:var(--purple)">Habla real</b> : l'espagnol qu'on se parle vraiment. L'autre te dit quelque chose, tu réponds. <i>« El examen me ha salido fatal. » → Courage, le mien n'était pas mieux non plus.</i> Chaque phrase est étiquetée <span class="pill" style="font-size:11px">neutre</span> ou <span class="pill warn" style="font-size:11px">familier</span> : savoir où on peut le dire fait partie du mot.</div>
       <div class="row2 mt">
         <div><div class="logo" style="font-size:24px;color:var(--blue)">${transSeen()}<span style="font-size:15px;color:var(--muted)"> / ${TRANSLATIONS.length}</span></div><div class="sub">phrases vues</div></div>
         <div><div class="logo" style="font-size:24px;color:var(--good)">${transMastered()}</div><div class="sub">maîtrisées (≥21j)</div></div>
@@ -2779,6 +3138,19 @@ function startTrans() {
   TR = { queue, pos: 0, done: 0, shown: false };
   renderTransCard();
 }
+/* « Habla real » : la réplique de l'autre (ctx) et l'étiquette de registre (reg).
+   Les deux champs sont facultatifs — les 416 phrases d'avant n'en ont pas. */
+function ctxHtml(t) {
+  if (!t || !t.ctx) return '';
+  const dit = String(t.ctx).replace(/^[—–-]\s*/, '').replace(/'/g, "\\'");
+  return `<div style="border-left:3px solid var(--purple);background:var(--bg2);border-radius:0 10px 10px 0;padding:9px 12px;margin-bottom:10px;font-size:15.5px;font-style:italic;color:var(--txt)">${t.ctx}
+    <button class="spk sm" style="vertical-align:middle" onclick="speak('${dit}')" title="Écouter">🔊</button></div>`;
+}
+function regPill(t) {
+  if (!t || !t.reg) return '';
+  const lab = t.reg === 'muy coloquial' ? 'très familier' : t.reg === 'coloquial' ? 'familier' : 'neutre';
+  return ` <span class="pill ${t.reg === 'neutro' ? '' : 'warn'}" style="font-size:11px">${lab}</span>`;
+}
 function renderTransCard() {
   if (TR.pos >= TR.queue.length) return finishTrans();
   const t = TRANSLATIONS[TR.queue[TR.pos]];
@@ -2786,8 +3158,9 @@ function renderTransCard() {
   const prompt = en2fr ? t.en : t.fr;
   TR.shown = false;
   app.innerHTML = `
-    <div class="qmeta"><span>${t.cat} · <span style="color:var(--accent)">${t.level}</span></span><span>${TR.pos + 1} / ${TR.queue.length}</span></div>
+    <div class="qmeta"><span>${t.cat} · <span style="color:var(--accent)">${t.level}</span>${regPill(t)}</span><span>${TR.pos + 1} / ${TR.queue.length}</span></div>
     <div class="pbar mb"><i style="width:${TR.pos / TR.queue.length * 100}%"></i></div>
+    ${ctxHtml(t)}
     <div class="transfr">${prompt}${en2fr ? ` <button class="spk sm" onclick="speak('${t.en.replace(/'/g, "\\'")}')" title="Écouter">🔊</button>` : ''}</div>
     <textarea id="trans-in" class="transinput" rows="2" placeholder="${en2fr ? 'Écris ta traduction en français' : 'Écris ta traduction en espagnol'} (facultatif)…"></textarea>
     <button class="btn" onclick="revealTrans()">Voir la correction</button>
@@ -2801,6 +3174,7 @@ function revealTrans() {
   const en2fr = S.transDir === 'en2fr';
   const prompt = en2fr ? t.en : t.fr;
   const model = en2fr ? t.fr : t.en;
+  const ctxLine = ctxHtml(t);
   const mine = (document.getElementById('trans-in') || {}).value || '';
   const mineHtml = mine.trim()
     ? `<div class="trans-mine"><div class="lbl">Ta réponse</div>${escapeHtml(mine.trim())}</div>` : '';
@@ -2809,6 +3183,7 @@ function revealTrans() {
   const enEsc = t.en.replace(/'/g, "\\'");
   app.innerHTML = `
     <div class="qmeta"><span>${t.cat} · <span style="color:var(--accent)">${t.level}</span></span><span>${TR.pos + 1} / ${TR.queue.length}</span></div>
+    ${ctxLine}
     <div class="transfr small">${prompt}</div>
     ${mineHtml}
     <div class="trans-model">
@@ -2816,7 +3191,7 @@ function revealTrans() {
       <div class="en">${model}</div>
       ${altHtml}
     </div>
-    <div class="expl" style="border-color:var(--purple)"><b>${t.point}</b><br>${t.note}</div>
+    <div class="expl" style="border-color:var(--purple)"><b>${t.point}</b>${regPill(t)}<br>${t.note}</div>
     <div class="sub center mt mb">Sans regarder, ta traduction était…</div>
     <div class="srsrow">
       <button class="again" onclick="doRateTrans(0)">À revoir</button>
@@ -3118,7 +3493,8 @@ function pronFinish() {
 }
 
 /* ============================================================
-   CONJUGAISON — obligatoire : 3 verbes × 3 temps, en entier.
+   CONJUGAISON — entraînement libre : 3 verbes × 3 temps, en entier.
+   (Plus obligatoire depuis le 2026-11-09 : cf. dayKind().)
    ============================================================ */
 const CONJ_TENSES = [
   { k: 'pres', name: "Présent de l'indicatif", ref: null, hint: 'Le présent courant : yo hablo, tú hablas…' },
@@ -3168,7 +3544,7 @@ function conjInsert(ch) {
 }
 function renderConjHome() {
   window.scrollTo(0, 0);
-  const today = conjToday(), st = conjState(), dp = dailyProgress();
+  const today = conjToday(), st = conjState();
   const cards = today.map((ch, k) => {
     const v = CONJUG[ch.vi], tm = CONJ_TMAP[ch.tk], forms = v.t[ch.tk];
     const done = st.done[k];
@@ -3206,9 +3582,9 @@ function renderConjHome() {
       ${['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü'].map(c => `<button onclick="conjInsert('${c}')">${c}</button>`).join('')}
     </div>
     <div class="card">
-      <h2>Conjugaison du jour ${dp.j >= 1 ? '🏆' : ''}</h2>
-      <div class="sub">Obligatoire. <b style="color:var(--txt)">3 verbes</b>, <b style="color:var(--txt)">3 temps différents</b>, à conjuguer <b style="color:var(--txt)">en entier</b> (les 6 personnes). Écris tout, puis « Corriger » : je vérifie chaque forme, <b style="color:var(--txt)">accents compris</b>. Barre d'accents en haut.</div>
-      <div class="sub center mt" style="font-weight:800;color:${dp.j >= 1 ? 'var(--good)' : 'var(--muted)'}">${st.done.filter(Boolean).length}/${GOAL_CONJ} verbes validés aujourd'hui</div>
+      <h2>Conjugueur libre</h2>
+      <div class="sub"><b style="color:var(--txt)">Entraînement libre</b> — il ne fait plus partie de l'objectif du jour. <b style="color:var(--txt)">3 verbes</b>, <b style="color:var(--txt)">3 temps différents</b>, à conjuguer <b style="color:var(--txt)">en entier</b> (les 6 personnes). Écris tout, puis « Corriger » : je vérifie chaque forme, <b style="color:var(--txt)">accents compris</b>. Barre d'accents en haut.</div>
+      <div class="sub center mt" style="font-weight:800;color:${st.done.filter(Boolean).length >= GOAL_CONJ ? 'var(--good)' : 'var(--muted)'}">${st.done.filter(Boolean).length}/${GOAL_CONJ} verbes conjugués aujourd'hui</div>
     </div>
     ${cards}
     <button class="btn ghost mt" onclick="setView('home')">Retour</button>
@@ -3244,6 +3620,133 @@ function checkConj(k) {
   const el = document.getElementById('cj-' + k + '-0');
   if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   if (!wasDone) toast(score === 6 ? '✅ Parfait — 6/6 !' : score >= 4 ? `👍 ${score}/6 — regarde les formes en rouge` : `${score}/6 — revois ce temps, c'est comme ça qu'on apprend`);
+}
+
+/* ============================================================
+   VERBOS DÉBILES — le pilier des jours impairs.
+   L'affaiblissement (e→i, o→u) des verbes en -ir, pris LÀ OÙ IL FRAPPE :
+   indefinido (seulement él/ellos), subjonctif présent, subjonctif
+   imparfait — plus le gérondif, la forme emblématique.
+   2 verbes par jour : un à affaiblissement pur (pedir), un à diphtongue
+   + affaiblissement (sentir, dormir). Tirage stable sur la journée.
+   ============================================================ */
+const DEB_TENSES = [
+  { k: 'indef', name: 'Passé simple · indefinido', ref: 'pasados', marks: [2, 5],
+    hint: "Le piège numéro un : SEULES les 3<sup>es</sup> personnes s'affaiblissent (él, ellos). Les quatre autres gardent le radical de l'infinitif." },
+  { k: 'subjpres', name: 'Subjonctif présent', ref: 'subjpres', marks: [0, 1, 2, 3, 4, 5],
+    hint: "Ici AUCUNE forme ne garde le radical de l'infinitif : diphtongue sous l'accent (sienta), affaiblissement à nosotros/vosotros (sintamos, sintáis)." },
+  { k: 'subjimp', name: 'Subjonctif imparfait', ref: 'subjimp', marks: [0, 1, 2, 3, 4, 5],
+    hint: "Il se fabrique sur le « ellos » de l'indefinido : pidieron → pidiera. Donc les 6 formes sont affaiblies, sans exception." }
+];
+const DEB_TMAP = {}; DEB_TENSES.forEach(t => DEB_TMAP[t.k] = t);
+const DEB_LABELS = CONJ_PRON.concat(['gerundio']);
+
+function debToday() {
+  const seed = daySeed();
+  const pure = [], dual = [];
+  DEBILES.forEach((v, i) => (v.type === 'i' ? pure : dual).push(i));
+  const a = seededPickVals(pure, 1, seed * 17 + 1)[0];          // affaiblissement pur
+  const b = seededPickVals(dual, 1, seed * 17 + 2)[0];          // diphtongue + affaiblissement
+  const tenses = seededPickVals(DEB_TENSES, GOAL_DEB, seed * 17 + 3);
+  return seededPickVals([a, b], GOAL_DEB, seed * 17 + 4).map((vi, k) => ({ vi, tk: tenses[k].k }));
+}
+function debState() {
+  const t = todayStr();
+  if (!S.debState || S.debState.date !== t)
+    S.debState = { date: t, done: [false, false], score: [0, 0],
+                   ans: [['', '', '', '', '', '', ''], ['', '', '', '', '', '', '']] };
+  return S.debState;
+}
+function debForm(v, tk, p) { return p < 6 ? v[tk][p] : v.ger; }
+function renderDebilesHome() {
+  window.scrollTo(0, 0);
+  if (typeof DEBILES === 'undefined' || !DEBILES.length) {
+    app.innerHTML = `<div class="card"><h2>Verbos débiles</h2><div class="sub">Données non chargées — recharge l'application.</div></div>
+      <button class="btn ghost mt" onclick="setView('home')">Retour</button>`;
+    return;
+  }
+  const today = debToday(), st = debState(), pil = dayKind() === 'debiles';
+  const nOk = st.done.filter(Boolean).length;
+  const cards = today.map((ch, k) => {
+    const v = DEBILES[ch.vi], tm = DEB_TMAP[ch.tk], ty = DEB_TYPES[v.type], done = st.done[k];
+    const inputs = DEB_LABELS.map((lab, p) => {
+      const id = 'db-' + k + '-' + p;
+      const val = escapeHtml((st.ans[k] && st.ans[k][p]) || '');
+      const bouge = p === 6 || tm.marks.indexOf(p) >= 0;
+      let res = '';
+      if (done) {
+        const bon = debForm(v, ch.tk, p), cls = conjFieldClass(st.ans[k][p], bon);
+        res = `<div class="cjres ${cls}">${cls === 'ok' ? '✓ ' + bon : cls === 'accent' ? '≈ accent → <b>' + bon + '</b>' : '✗ → <b>' + bon + '</b>'}</div>`;
+      }
+      return `<div class="cjfield">
+        <label>${lab}${bouge ? ' <span style="color:var(--accent)">•</span>' : ''}</label>
+        <input id="${id}" type="text" value="${val}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" lang="es" onfocus="conjFocus=this.id" placeholder="…">
+        ${res}</div>`;
+    }).join('');
+    return `
+      <div class="card cjcard ${done ? 'done' : ''}">
+        <div class="cjhead">
+          <div>
+            <div class="cjinf">${v.inf} <span class="cjfr">— ${v.fr}</span></div>
+            <div class="cjtag"><span class="pill warn">${ty.lab}</span> <b style="color:var(--blue)">${tm.name}</b></div>
+          </div>
+          ${done ? `<div class="cjscore ${st.score[k] === 7 ? 'perfect' : ''}">${st.score[k]}/7</div>` : ''}
+        </div>
+        <div class="cjhint">${tm.hint}</div>
+        <div class="cjhint" style="border-color:var(--purple)">${ty.kind} · ${ty.hint}</div>
+        <div class="cjgrid">${inputs}</div>
+        <button class="btn ${done ? 'sec' : ''} mt" onclick="checkDeb(${k})">${done ? 'Re-corriger' : 'Corriger'}</button>
+        ${done && tm.ref ? `<button class="btn ghost mt" style="font-size:13px;padding:8px" onclick="renderTense('${tm.ref}')">📖 Revoir : ${tm.name}</button>` : ''}
+      </div>`;
+  }).join('');
+  app.innerHTML = `
+    <div class="accbar" id="accbar">
+      ${['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü'].map(c => `<button onclick="conjInsert('${c}')">${c}</button>`).join('')}
+    </div>
+    <div class="card">
+      <h2>Verbos débiles ${pil && nOk >= GOAL_DEB ? '🏆' : ''}</h2>
+      <div class="sub">L'<b style="color:var(--txt)">affaiblissement</b> : le <b style="color:var(--txt)">e</b> devient <b style="color:var(--txt)">i</b> et le <b style="color:var(--txt)">o</b> devient <b style="color:var(--txt)">u</b> dès que la syllabe du radical n'est plus accentuée. Uniquement des verbes en <b style="color:var(--txt)">-ir</b> — et ça frappe là où on l'oublie : <i>pidió</i>, <i>durmiendo</i>, <i>sintamos</i>, <i>pidiera</i>.</div>
+      <div class="sub mt">${pil ? '<b style="color:var(--accent)">Pilier du jour.</b> ' : '<b style="color:var(--txt)">Entraînement libre</b> (le pilier, c\'est la lecture aujourd\'hui). '}${GOAL_DEB} verbes : un à affaiblissement pur, un à diphtongue + affaiblissement. Les 6 personnes <b style="color:var(--txt)">+ le gérondif</b>. Les cases marquées <span style="color:var(--accent)">•</span> sont celles où le radical bouge.</div>
+      <div class="sub center mt" style="font-weight:800;color:${nOk >= GOAL_DEB ? 'var(--good)' : 'var(--muted)'}">${nOk}/${GOAL_DEB} verbes validés aujourd'hui</div>
+    </div>
+    ${cards}
+    <div class="card" style="border-color:var(--purple)">
+      <h2 style="font-size:15px">📌 Les cousins orthographiques</h2>
+      <div class="sub"><b style="color:var(--txt)">seguir, conseguir</b> → le <b>u</b> tombe devant a/o : <i>sigo, siga, sigamos, sigáis</i>.<br>
+      <b style="color:var(--txt)">elegir, corregir</b> → le <b>g</b> devient <b>j</b> devant a/o : <i>elijo, elija, elijáis</i>.<br>
+      <b style="color:var(--txt)">reír, freír</b> → le radical se réduit : <i>río, rio, riendo, riera</i>.<br>
+      <b style="color:var(--txt)">reñir, teñir</b> → le <b>i</b> de la terminaison disparaît après ñ : <i>riñó, riñeron, riñendo</i>.</div>
+    </div>
+    <button class="btn ghost mt" onclick="setView('home')">Retour</button>
+  `;
+}
+function checkDeb(k) {
+  resetDailyIfNeeded();
+  const today = debToday(), ch = today[k], v = DEBILES[ch.vi], st = debState();
+  /* même récolte globale que checkConj : valider un verbe ne doit pas effacer
+     ce qui est tapé dans l'autre. */
+  today.forEach((_, j) => {
+    const a = [];
+    for (let p = 0; p < 7; p++) { const e = document.getElementById('db-' + j + '-' + p); a[p] = e ? e.value : (st.ans[j] ? st.ans[j][p] : '') || ''; }
+    st.ans[j] = a;
+  });
+  const ans = st.ans[k];
+  let score = 0;
+  for (let p = 0; p < 7; p++) if (normConj(ans[p]) === normConj(debForm(v, ch.tk, p))) score++;
+  st.score[k] = score;
+  const wasDone = st.done[k];
+  if (!wasDone) {
+    st.done[k] = true;
+    S.debDone = (S.debDone || 0) + 1;
+    if (score === 7) S.debPerfect = (S.debPerfect || 0) + 1;
+    addXp(3 + score);
+  }
+  S.daily.deb = st.done.filter(Boolean).length;
+  save(); checkDailyDone(); checkAchievements();
+  renderDebilesHome();
+  const el = document.getElementById('db-' + k + '-0');
+  if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  if (!wasDone) toast(score === 7 ? '✅ Parfait — 7/7 !' : score >= 5 ? `👍 ${score}/7 — regarde les formes en rouge` : `${score}/7 — c'est exactement là que ça se joue, reviens-y`);
 }
 
 /* ============================================================
