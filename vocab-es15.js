@@ -17,6 +17,9 @@
    existantes : 70 y étaient déjà (enchufe, toalla, escoba, semáforo, cargador,
    índole, estar hecho polvo…) et ont été écartés. Restent 100 cartes, qui
    manquaient vraiment.
+   Thèmes : les cartes rejoignent des familles qui existaient déjà — « Día a
+   día » (87), « Oral » (9), « Abstracto C1 » (4) — plutôt que d'ouvrir des
+   chips de plus dans une liste qui en compte déjà 104.
    Chargé APRÈS vocab-es14.js → append en fin. VOCAB_PRIO : ces mots passent
    en tête des nouvelles cartes.
    ============================================================ */
@@ -125,22 +128,22 @@
 ["la caspa","les pellicules","Champú anticaspa, por favor.","Día a día","Singulier en espagnol, pluriel en français. Au figuré, en Espagne : caspa = ringardise (un humor con mucha caspa = un humour daté)."],
 
 /* ---------- LOS ABSTRACTOS QUE FALTABAN ---------- */
-["el tabú","le tabou","El dinero sigue siendo un tabú en muchas familias.","Abstractos","Pluriel : los tabúes (soutenu) ou los tabús. Adjectif invariable : un tema tabú, temas tabú. romper un tabú = briser un tabou."],
-["el pudor","la pudeur, la gêne","Le da pudor hablar de lo que gana.","Abstractos","dar pudor = gêner, intimider. pudoroso = pudique ; sin pudor = sans vergogne. Voisin utile : la vergüenza (la honte)."],
-["el azar","le hasard","No fue casualidad, fue puro azar.","Abstractos","al azar = au hasard ; juegos de azar = jeux de hasard. ⚠️ Nuance : la casualidad = la coïncidence qui tombe bien ; el azar = le hasard comme principe. Et la suerte = la chance."],
-["el apego","l'attachement","Le tiene mucho apego a esa casa.","Abstractos","tener apego a = être attaché à ; desapego = détachement, indifférence. Registre courant et psychologique (la teoría del apego)."],
+["el tabú","le tabou","El dinero sigue siendo un tabú en muchas familias.","Abstracto C1","Pluriel : los tabúes (soutenu) ou los tabús. Adjectif invariable : un tema tabú, temas tabú. romper un tabú = briser un tabou."],
+["el pudor","la pudeur, la gêne","Le da pudor hablar de lo que gana.","Abstracto C1","dar pudor = gêner, intimider. pudoroso = pudique ; sin pudor = sans vergogne. Voisin utile : la vergüenza (la honte)."],
+["el azar","le hasard","No fue casualidad, fue puro azar.","Abstracto C1","al azar = au hasard ; juegos de azar = jeux de hasard. ⚠️ Nuance : la casualidad = la coïncidence qui tombe bien ; el azar = le hasard comme principe. Et la suerte = la chance."],
+["el apego","l'attachement","Le tiene mucho apego a esa casa.","Abstracto C1","tener apego a = être attaché à ; desapego = détachement, indifférence. Registre courant et psychologique (la teoría del apego)."],
 
 /* ---------- EL ORAL DE TODOS LOS DÍAS ---------- */
-["la chapuza","le travail bâclé, le bricolage mal fait","La reforma es una chapuza de arriba abajo.","Oral del día a día","Aussi le petit boulot au noir : hacer chapuzas. chapucero = bâcleur, qui travaille salement. Très fréquent dans la presse espagnole pour critiquer une loi mal ficelée."],
-["el cacharro","le truc, le machin (objet, appareil)","Este cacharro no funciona desde ayer.","Oral del día a día","Pour tout appareil, surtout quand il énerve : la voiture, la machine à laver, l'ordinateur. Au pluriel, les casseroles : fregar los cacharros = faire la vaisselle."],
+["la chapuza","le travail bâclé, le bricolage mal fait","La reforma es una chapuza de arriba abajo.","Oral","Aussi le petit boulot au noir : hacer chapuzas. chapucero = bâcleur, qui travaille salement. Très fréquent dans la presse espagnole pour critiquer une loi mal ficelée."],
+["el cacharro","le truc, le machin (objet, appareil)","Este cacharro no funciona desde ayer.","Oral","Pour tout appareil, surtout quand il énerve : la voiture, la machine à laver, l'ordinateur. Au pluriel, les casseroles : fregar los cacharros = faire la vaisselle."],
 ["el trasto","le vieux truc encombrant","El garaje está lleno de trastos.","Día a día","Ce qui ne sert plus et prend de la place. Pour une personne : es un trasto = c'est un bon à rien, ou un enfant turbulent. el trastero = le débarras, la cave."],
-["el follón","le bazar, le bordel, l'embrouille","Se montó un follón tremendo en la reunión.","Oral del día a día","montarse / armarse un follón = ça part en vrille. Très espagnol, familier mais pas grossier. Synonymes : el lío, el jaleo, el marrón (la galère qu'on se prend)."],
-["el jaleo","le vacarme, le remue-ménage","¿Qué jaleo es ese de la calle?","Oral del día a día","Le bruit et l'agitation. armar jaleo = faire du raffut. Moins négatif que follón : un jaleo peut être joyeux."],
-["un mogollón (de)","un paquet, plein (de)","Había un mogollón de gente.","Oral del día a día","Très familier, Espagne. Aussi adverbe : me gusta mogollón = j'adore. Registre à éviter à l'écrit ou en entretien — mais omniprésent à l'oral."],
-["el curro","le boulot","Salgo del curro a las siete.","Oral del día a día","currar = bosser ; el currante = le bosseur. Espagne uniquement (en Amérique : la chamba, el laburo). À l'écrit, el trabajo."],
-["tener buena pinta","avoir l'air bon, avoir bonne allure","Ese plato tiene buena pinta.","Oral del día a día","la pinta = l'allure, l'apparence. tener mala pinta = ne rien présager de bon. Pour une personne : va hecho una pinta = il est accoutré n'importe comment."],
-["apetecer","avoir envie de, dire (quelque chose à quelqu'un)","¿Te apetece un café?","Oral del día a día","⚠️ Se construit comme gustar : me apetece, te apetece — le sujet est la chose. « J'ai envie d'un café » = me apetece un café, jamais « yo apetezco »."],
-["hacer caso (a)","écouter, tenir compte de, faire attention à","No le hagas caso, lo dice por molestar.","Oral del día a día","hacer caso a alguien = l'écouter, suivre son conseil ; ni caso = ignore complètement. Aussi hacer caso omiso de = ne tenir aucun compte de (soutenu)."]
+["el follón","le bazar, le bordel, l'embrouille","Se montó un follón tremendo en la reunión.","Oral","montarse / armarse un follón = ça part en vrille. Très espagnol, familier mais pas grossier. Synonymes : el lío, el jaleo, el marrón (la galère qu'on se prend)."],
+["el jaleo","le vacarme, le remue-ménage","¿Qué jaleo es ese de la calle?","Oral","Le bruit et l'agitation. armar jaleo = faire du raffut. Moins négatif que follón : un jaleo peut être joyeux."],
+["un mogollón (de)","un paquet, plein (de)","Había un mogollón de gente.","Oral","Très familier, Espagne. Aussi adverbe : me gusta mogollón = j'adore. Registre à éviter à l'écrit ou en entretien — mais omniprésent à l'oral."],
+["el curro","le boulot","Salgo del curro a las siete.","Oral","currar = bosser ; el currante = le bosseur. Espagne uniquement (en Amérique : la chamba, el laburo). À l'écrit, el trabajo."],
+["tener buena pinta","avoir l'air bon, avoir bonne allure","Ese plato tiene buena pinta.","Oral","la pinta = l'allure, l'apparence. tener mala pinta = ne rien présager de bon. Pour une personne : va hecho una pinta = il est accoutré n'importe comment."],
+["apetecer","avoir envie de, dire (quelque chose à quelqu'un)","¿Te apetece un café?","Oral","⚠️ Se construit comme gustar : me apetece, te apetece — le sujet est la chose. « J'ai envie d'un café » = me apetece un café, jamais « yo apetezco »."],
+["hacer caso (a)","écouter, tenir compte de, faire attention à","No le hagas caso, lo dice por molestar.","Oral","hacer caso a alguien = l'écouter, suivre son conseil ; ni caso = ignore complètement. Aussi hacer caso omiso de = ne tenir aucun compte de (soutenu)."]
 
   ]);
   window.VOCAB_PRIO = (window.VOCAB_PRIO || []).concat(
