@@ -1,8 +1,8 @@
 /* CUMBRE — service worker : cache offline (app shell) */
-const CACHE = 'cumbre-v51-refonte';
+const CACHE = 'cumbre-v52-refonte';
 const ASSETS = [
   'index.html',
-  'app.js?v=42',
+  'app.js?v=43',
   'charla.js?v=1',
   'data-escenas.js?v=1',
   'grammar-lot5.js?v=1',

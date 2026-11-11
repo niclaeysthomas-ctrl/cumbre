@@ -1123,7 +1123,9 @@ function coachAdvice() {
   if (due > 0) return { title: 'Priorité : réviser', msg: `${due} carte(s) sont dues. Les revoir à temps, c'est là que la mémoire se joue.`, btn: 'Réviser', action: 'startReview(false)' };
   if (mistakeCount() >= 3) return { title: 'Corrige tes erreurs', msg: `Tu as ${mistakeCount()} question(s) déjà ratée(s) en attente. Les rejouer jusqu'à les maîtriser, c'est le plus direct vers le sans-faute.`, btn: 'Revoir mes erreurs', action: 'startMistakes()' };
   if (dp.j < 1) return dayKind() === 'lectura'
-    ? { title: 'La lecture du jour', msg: `« ${lecOfToday().title} » — le texte, le glossaire, puis les questions. Un jour sur deux, le pilier c'est de l'espagnol réel : c'est ce qui fait décoller à ce niveau.`, btn: 'Lire', action: "setView('lectura')" }
+    ? (lecDone(lecOfToday().id)
+        ? { title: 'Lire — mais du neuf', msg: `Les ${LECTURAS.length} lectures de l'app sont lues : celle du jour serait une relecture. Colle plutôt un texte à toi — un article, un chapitre. C'est le volume d'espagnol rencontré qui fait le C1, et tu en es à ${readWords().toLocaleString('fr-FR')} mots ici.`, btn: 'Mi lectura', action: "setView('milectura')" }
+        : { title: 'La lecture du jour', msg: `« ${lecOfToday().title} » — le texte, le glossaire, puis les questions. Un jour sur deux, le pilier c'est de l'espagnol réel : c'est ce qui fait décoller à ce niveau.`, btn: 'Lire', action: "setView('lectura')" })
     : { title: 'Verbes à affaiblissement', msg: `${GOAL_DEB} verbes du jour, pris là où le radical s'affaiblit : pidió, durmiera, sintamos. C'est le trou noir du C1 — on le bouche.`, btn: 'Conjuguer', action: "setView('debiles')" };
   if (dp.t < 1 && buildTransQueue('Tous').length) return { title: 'Passe à la production', msg: 'Traduire des phrases rend ta grammaire active — le vrai déclic bilingue.', btn: 'Traduire', action: "setView('traduire')" };
   if (!dp.p) return { title: 'Travaille ta bouche', msg: 'La session de prononciation du jour : le R roulé surtout. 5 minutes qui changent ton accent.', btn: 'Prononcer', action: "setView('pron')" };
