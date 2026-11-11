@@ -1,8 +1,8 @@
 /* CUMBRE — service worker : cache offline (app shell) */
-const CACHE = 'cumbre-v50-conversacion';
+const CACHE = 'cumbre-v51-refonte';
 const ASSETS = [
   'index.html',
-  'app.js?v=41',
+  'app.js?v=42',
   'charla.js?v=1',
   'data-escenas.js?v=1',
   'grammar-lot5.js?v=1',
@@ -38,6 +38,7 @@ const ASSETS = [
   'data-dudas.js?v=1',
   'listening-long.js?v=2',
   'exam-data.js?v=1',
+  'data-evaluacion.js?v=2',
   'advanced-es.js?v=2',
   'advanced-es2.js?v=5',
   'advanced-es3.js?v=1',
