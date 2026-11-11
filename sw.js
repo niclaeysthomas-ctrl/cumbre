@@ -1,5 +1,5 @@
 /* CUMBRE — service worker : cache offline (app shell) */
-const CACHE = 'cumbre-v48-fusion-dia-a-dia';
+const CACHE = 'cumbre-v49-fichiers-manquants';
 const ASSETS = [
   'index.html',
   'app.js?v=41',
