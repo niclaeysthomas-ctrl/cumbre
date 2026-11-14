@@ -51,6 +51,8 @@ const DEFAULT = {
   regime: 'rapido',     // intensité quotidienne (cf REGIMES)
   dele: null,           // DELE C1 Prueba 1 : {hist:[], use:{lectura,recon,huecos,gram}}
   idiom: null,          // module idiomatique : {seen:{}, date, days, supOk, supN, calOk, calN}
+  diag: null,           // EL DIAGNÓSTICO : profil par compétence (cf diagnostico.js)
+  diagRun: null,        // diagnostic en cours : {n, i, ans, secs, started} — permet la reprise
   firstRun: true
 };
 
@@ -1024,6 +1026,7 @@ function render() {
   if (view === 'sangsues') return renderLeeches();
   if (view === 'afondo') return renderAfondoHome();
   if (view === 'idiom') return renderIdiomHome();
+  if (view === 'diag') return renderDiagHome();
   if (view === 'exam') return renderExamHome();
   if (view === 'dele') return renderDeleHome();
   if (view === 'traduire') return renderTransHome();
@@ -1142,11 +1145,20 @@ function renderHome() {
   const doneLessons = LESSONS.filter(l => S.lessons[l.id] && S.lessons[l.id].done).length;
   const pct = Math.round(L.into / L.need * 100);
 
-  const placementBanner = !S.placementDone ? `
+  /* 2026-11-14 — LA BANNIÈRE POINTE VERS LE DIAGNOSTIC, PAS VERS L'EXAMEN.
+     Le test de placement répondait « quel est mon niveau » avec un nombre.
+     Ce qui manquait était « quoi régler » : un profil par compétence, et la
+     mesure de l'écart entre ce qui est reconnu et ce qui est produit. Tant
+     que le diagnostic n'est pas passé, c'est LA chose à faire, parce que
+     tout le reste de l'app se règle dessus. */
+  const diagRun = typeof diagState === 'function' ? diagState() : null;
+  const placementBanner = !S.diag ? `
     <div class="banner">
-      <div class="t">🎯 Fais ton test de niveau</div>
-      <div class="d">Un test complet (écoute + grammaire + lecture) pour estimer ton niveau CEFR actuel (A1→C1) et démarrer ta courbe de progression.</div>
-      <button class="btn" onclick="startExam('placement')">Commencer le test de niveau</button>
+      <div class="t">🧭 ${diagRun ? 'Reprends ton diagnostic' : 'Passe le diagnostic'}</div>
+      <div class="d">${diagRun
+        ? `Tu en es à la question ${diagRun.i + 1} sur ${diagRun.n}. Chaque réponse est sauvegardée : reprends où tu t'es arrêté.`
+        : `Un test unique, long, sans audio : ${typeof diagTotal === 'function' ? diagTotal() : 149} items qui sortent un niveau par compétence (subjonctif, temps, prépositions, lexique, lecture…) et mesurent l'écart entre ce que tu reconnais et ce que tu produis. C'est là-dessus que l'app se règle ensuite.`}</div>
+      <button class="btn" onclick="setView('diag')">${diagRun ? 'Reprendre' : 'Voir le diagnostic'}</button>
     </div>` : '';
 
   const scoreCard = S.estScore != null ? `
@@ -3155,12 +3167,16 @@ function progressChart() {
 function renderExamHome() {
   if (!S.placementDone) {
     app.innerHTML = `
-      <div class="card">
-        <h2>Test de niveau</h2>
-        <div class="sub">Avant tout : passe un test complet pour estimer ton niveau CEFR de départ (A1→C1). Il combine écoute, grammaire et lecture, et démarre ta courbe de progression.</div>
+      <div class="card" style="border-color:var(--accent)">
+        <h2>🧭 Commence par le diagnostic</h2>
+        <div class="sub">Avant de mesurer ta progression, il faut savoir <b style="color:var(--txt)">d'où</b> tu pars, compétence par compétence. Le diagnostic fait ça : ${typeof diagTotal==="function"?diagTotal():149} items, pas d'audio, une seule fois, et il sort un niveau par compétence au lieu d'un score unique.</div>
+        <button class="btn mt" onclick="setView('diag')">Voir le diagnostic</button>
       </div>
-      <button class="btn" onclick="startExam('placement')">Passer le test de niveau (~20 min)</button>
-      <div class="sub center mt">26 questions tirées d'une banque réservée à la mesure · estimation A1→C1</div>
+      <div class="card">
+        <h2 style="font-size:15px">Ou le test de niveau classique</h2>
+        <div class="sub">26 questions avec écoute, tirées de la banque de mesure. Plus court, et c'est lui qui démarre la courbe de progression — mais il ne dit pas quoi travailler.</div>
+        <button class="btn sec mt" onclick="startExam('placement')">Passer le test de niveau (~20 min)</button>
+      </div>
     `;
     return;
   }
@@ -3179,6 +3195,17 @@ function renderExamHome() {
       <div class="pill mt">${scoreBand(S.estScore)}</div>
       ${progressChart()}
     </div>
+
+    <button class="tile" style="border-color:${S.diag ? 'var(--line)' : 'var(--accent)'}" onclick="setView('diag')">
+      <div class="ic e">🧭</div>
+      <div class="body">
+        <div class="t">El diagnóstico${S.diag ? '' : ' · pas encore passé'}</div>
+        <div class="d">${S.diag
+          ? `Profil du ${S.diag.date} : ${S.diag.cefr}, reconnaissance ${S.diag.recon}% contre production ${S.diag.rappel}%. Un niveau par compétence.`
+          : `${typeof diagTotal==="function"?diagTotal():149} items, sans audio, une seule fois. Il ne mesure pas la progression : il dit quoi régler.`}</div>
+      </div>
+      <div class="badge zero">›</div>
+    </button>
 
     <button class="tile dele-tile" onclick="setView('dele')">
       <div class="ic e">🔥</div>
