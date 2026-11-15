@@ -53,6 +53,8 @@ const DEFAULT = {
   idiom: null,          // module idiomatique : {seen:{}, date, days, supOk, supN, calOk, calN}
   diag: null,           // EL DIAGNÓSTICO : profil par compétence (cf diagnostico.js)
   diagRun: null,        // diagnostic en cours : {n, i, ans, secs, started} — permet la reprise
+  plan: null,           // PLAN C1 : {on, start} — cf plan-c1.js
+  taller: null,         // EL TALLER : {box, vistos, dia, hechos, aciertos, hist}
   firstRun: true
 };
 
@@ -69,8 +71,16 @@ let GOAL_CARDS = 20, GOAL_TRANS = 5; const GOAL_CONJ = 3, GOAL_DEB = 2;
    libre, sans obligation. */
 function dayKind() { return daySeed() % 2 === 0 ? 'lectura' : 'debiles'; }
 function dayKindLabel(k) { return k === 'lectura' ? '📖 lecture du jour' : '🔩 verbes à affaiblissement'; }
+/* 2026-11-15 — QUAND LE PLAN C1 TOURNE, LE PILIER EST LE TALLER.
+   Le pilier alternait lecture / verbes à affaiblissement. Le diagnostic a
+   mis les deux hors de cause : lecture 17/18 (dont 5/6 au niveau C1) et
+   morphologie 12/13. On imposait donc un jour sur deux la compétence la
+   mieux tenue. Le pilier devient les items tapés du taller, qui visent les
+   compétences réellement ratées. Hors plan, rien ne change. */
 function dayPillarDone() {
   resetDailyIfNeeded();
+  if (typeof planActive === 'function' && planActive())
+    return Math.min(1, tallerHoy() / GOAL_TALLER);
   return dayKind() === 'lectura' ? (S.daily.lec ? 1 : 0)
                                  : Math.min(1, (S.daily.deb || 0) / GOAL_DEB);
 }
@@ -128,7 +138,16 @@ function dailyProgress() {
   const s = S.daily.study ? 1 : 0;
   const p = S.daily.pron ? 1 : 0;
   const j = dayPillarDone();
-  return { c, t, s, p, j, pct: Math.round((c + t + s + p + j) / 5 * 100), done: (c >= 1 && t >= 1 && s >= 1 && p >= 1 && j >= 1) };
+  /* Pendant le plan C1, la prononciation n'est plus DUE : le diagnostic ne
+     la mesure pas, l'objectif est écrit, et il travaille souvent sans son.
+     Elle reste cliquable et elle compte toujours en XP — elle ne bloque
+     simplement plus la journée. Ôter une obligation vaut mieux que la
+     laisser échouer tous les jours. */
+  const planOn = typeof planActive === 'function' && planActive();
+  const partes = planOn ? [c, t, s, j] : [c, t, s, p, j];
+  return { c, t, s, p, j, planOn,
+           pct: Math.round(partes.reduce((a, b) => a + b, 0) / partes.length * 100),
+           done: partes.every(x => x >= 1) };
 }
 function checkDailyDone() {
   resetDailyIfNeeded();
@@ -1026,6 +1045,7 @@ function render() {
   if (view === 'sangsues') return renderLeeches();
   if (view === 'afondo') return renderAfondoHome();
   if (view === 'idiom') return renderIdiomHome();
+  if (view === 'plan') return renderPlanHome();
   if (view === 'diag') return renderDiagHome();
   if (view === 'exam') return renderExamHome();
   if (view === 'dele') return renderDeleHome();
@@ -1125,13 +1145,22 @@ function coachAdvice() {
   const dp = dailyProgress();
   if (due > 0) return { title: 'Priorité : réviser', msg: `${due} carte(s) sont dues. Les revoir à temps, c'est là que la mémoire se joue.`, btn: 'Réviser', action: 'startReview(false)' };
   if (mistakeCount() >= 3) return { title: 'Corrige tes erreurs', msg: `Tu as ${mistakeCount()} question(s) déjà ratée(s) en attente. Les rejouer jusqu'à les maîtriser, c'est le plus direct vers le sans-faute.`, btn: 'Revoir mes erreurs', action: 'startMistakes()' };
+  /* 2026-11-15 — Pendant le plan C1, le pilier est le taller : le coach
+     doit pointer le même travail que l'objectif du jour, sinon l'app se
+     contredit à l'écran et c'est elle qu'on cesse de croire. */
+  if (dp.planOn && dp.j < 1) {
+    const f = planFase();
+    return { title: 'EL TALLER · ' + f.t,
+      msg: `${tallerLeft()} items à taper, zéro option. Semaine ${planWeek()} sur 8, ${planLeft()} jours avant le re-diagnostic. C'est le seul format qui attaque l'écart entre ce que tu reconnais (${S.diag.recon}%) et ce que tu produis (${S.diag.rappel}%).`,
+      btn: 'Commencer', action: 'tallerStart()' };
+  }
   if (dp.j < 1) return dayKind() === 'lectura'
     ? (lecDone(lecOfToday().id)
         ? { title: 'Lire — mais du neuf', msg: `Les ${LECTURAS.length} lectures de l'app sont lues : celle du jour serait une relecture. Colle plutôt un texte à toi — un article, un chapitre. C'est le volume d'espagnol rencontré qui fait le C1, et tu en es à ${readWords().toLocaleString('fr-FR')} mots ici.`, btn: 'Mi lectura', action: "setView('milectura')" }
         : { title: 'La lecture du jour', msg: `« ${lecOfToday().title} » — le texte, le glossaire, puis les questions. Un jour sur deux, le pilier c'est de l'espagnol réel : c'est ce qui fait décoller à ce niveau.`, btn: 'Lire', action: "setView('lectura')" })
     : { title: 'Verbes à affaiblissement', msg: `${GOAL_DEB} verbes du jour, pris là où le radical s'affaiblit : pidió, durmiera, sintamos. C'est le trou noir du C1 — on le bouche.`, btn: 'Conjuguer', action: "setView('debiles')" };
   if (dp.t < 1 && buildTransQueue('Tous').length) return { title: 'Passe à la production', msg: 'Traduire des phrases rend ta grammaire active — le vrai déclic bilingue.', btn: 'Traduire', action: "setView('traduire')" };
-  if (!dp.p) return { title: 'Travaille ta bouche', msg: 'La session de prononciation du jour : le R roulé surtout. 5 minutes qui changent ton accent.', btn: 'Prononcer', action: "setView('pron')" };
+  if (!dp.p && !dp.planOn) return { title: 'Travaille ta bouche', msg: 'La session de prononciation du jour : le R roulé surtout. 5 minutes qui changent ton accent.', btn: 'Prononcer', action: "setView('pron')" };
   if (!dp.s) return { title: 'Un peu d\'étude', msg: 'Une session d\'écoute ou une leçon de grammaire pour valider ta journée.', btn: 'Écouter', action: "setView('listen')" };
   if (dp.c < 1) return { title: 'Apprends du vocabulaire', msg: 'De nouvelles cartes t\'attendent aujourd\'hui.', btn: 'Cartes', action: 'startReview(false)' };
   return { title: 'Journée bouclée 🏆', msg: 'Tout est à jour. Un examen blanc pour mesurer tes progrès ?', btn: 'Examen blanc', action: "setView('exam')" };
@@ -1152,6 +1181,26 @@ function renderHome() {
      que le diagnostic n'est pas passé, c'est LA chose à faire, parce que
      tout le reste de l'app se règle dessus. */
   const diagRun = typeof diagState === 'function' ? diagState() : null;
+  /* Diagnostic passé mais plan pas encore activé : c'est l'étape qui reste,
+     et elle n'a de sens qu'une fois le profil connu. */
+  const planOnNow = typeof planActive === 'function' && planActive();
+  const planBanner = !S.diag ? ''
+    : (planOnNow && !(S.plan && S.plan.visto)) ? `
+    <div class="banner">
+      <div class="t">🎯 Objectif C1 · ${planEndDate()}</div>
+      <div class="d">Ton diagnostic a réglé l'app. Trois choses ont changé :
+      <br>· <b>EL TALLER</b> devient le pilier du jour — ${GOAL_TALLER} items à taper, répartis selon ce que tu as réellement raté ;
+      <br>· la <b>lecture</b> sort du socle obligatoire (17/18 au diagnostic : il n'y a plus rien à y gagner) ;
+      <br>· la <b>prononciation</b> aussi (non mesurée, et l'objectif est écrit).
+      <br>Une obligation en plus, deux en moins.</div>
+      <button class="btn" onclick="planVisto()">Voir le plan</button>
+    </div>`
+    : (!planOnNow) ? `
+    <div class="banner">
+      <div class="t">🎯 Le plan C1 est arrêté</div>
+      <div class="d">Diagnostic du ${S.diag.date} : ${S.diag.cefr}, reconnaissance ${S.diag.recon}% contre production ${S.diag.rappel}%. Le plan reste disponible quand tu veux.</div>
+      <button class="btn" onclick="setView('plan')">Voir le plan</button>
+    </div>` : '';
   const placementBanner = !S.diag ? `
     <div class="banner">
       <div class="t">🧭 ${diagRun ? 'Reprends ton diagnostic' : 'Passe le diagnostic'}</div>
@@ -1180,13 +1229,19 @@ function renderHome() {
           if (g <= 0) return goalLine(true, 'Réviser des cartes', 'rien de dû ✓');
           return goalLine(dp.c >= 1, 'Réviser des cartes', `${Math.min(S.daily.cards, g)}/${g}`
             + (g < dailyCardCap() ? ` <span style="color:var(--muted);font-size:11px">(tout ce qui est dû)</span>` : '')); })()}
-        ${dayKind() === 'lectura'
-          ? goalLine(dp.j >= 1, 'Lire la lectura du jour', dp.j >= 1 ? 'lue ✓' : '0/1')
-          : goalLine(dp.j >= 1, 'Verbes à affaiblissement', `${Math.min(S.daily.deb || 0, GOAL_DEB)}/${GOAL_DEB}`)}
-        ${goalLine(dp.p >= 1, 'Prononciation (R · ñ)', dp.p ? 'fait' : '0/1')}
+        ${dp.planOn
+          ? goalLine(dp.j >= 1, '🛠 EL TALLER · items tapés', `${tallerHoy()}/${GOAL_TALLER}`)
+          : (dayKind() === 'lectura'
+              ? goalLine(dp.j >= 1, 'Lire la lectura du jour', dp.j >= 1 ? 'lue ✓' : '0/1')
+              : goalLine(dp.j >= 1, 'Verbes à affaiblissement', `${Math.min(S.daily.deb || 0, GOAL_DEB)}/${GOAL_DEB}`))}
+        ${dp.planOn
+          ? `<div class="goal ${dp.p >= 1 ? 'ok' : ''}" style="opacity:.6"><span class="gk">${dp.p >= 1 ? '✅' : '○'}</span><span class="gt">Prononciation <span style="font-size:11px">· facultatif</span></span><span class="gs">${dp.p ? 'fait' : '—'}</span></div>`
+          : goalLine(dp.p >= 1, 'Prononciation (R · ñ)', dp.p ? 'fait' : '0/1')}
         ${goalLine(dp.t >= 1, 'Traduire des phrases', `${Math.min(S.daily.trans, GOAL_TRANS)}/${GOAL_TRANS}`)}
         ${goalLine(dp.s >= 1, 'Étudier (grammaire/écoute)', dp.s ? 'fait' : '0/1')}
-        <div class="sub mt" style="font-size:12px;color:var(--muted)">Pilier du jour : <b style="color:var(--txt)">${dayKindLabel(dayKind())}</b> · demain ${dayKindLabel(dayKind() === 'lectura' ? 'debiles' : 'lectura')}</div>
+        ${dp.planOn
+          ? `<div class="sub mt" style="font-size:12px;color:var(--muted)">🎯 Objectif C1 : <b style="color:var(--accent)">${planLeft()} jours</b> · semaine ${planWeek()} · <b style="color:var(--txt)">${planFase().t}</b> · <span style="color:var(--accent);cursor:pointer" onclick="setView('plan')">le plan ›</span></div>`
+          : `<div class="sub mt" style="font-size:12px;color:var(--muted)">Pilier du jour : <b style="color:var(--txt)">${dayKindLabel(dayKind())}</b> · demain ${dayKindLabel(dayKind() === 'lectura' ? 'debiles' : 'lectura')}</div>`}
         <div class="sub" style="font-size:12px;color:var(--muted)">Intensité : <b style="color:var(--txt)">${currentRegime().emoji} ${currentRegime().name}</b> · <span style="color:var(--accent);cursor:pointer" onclick="setView('anki')">régler ›</span></div>
       </div>
     </div>`;
@@ -1205,6 +1260,7 @@ function renderHome() {
 
   app.innerHTML = `
     ${placementBanner}
+    ${planBanner}
     ${objectiveCard}
     ${coachCard}
     <div class="xpwrap" onclick="renderAchievements()" style="cursor:pointer">
@@ -1225,13 +1281,32 @@ function renderHome() {
       <div class="badge" style="background:var(--bad);color:#2a0509">${mistakeCount()}</div>
     </button>` : ''}
 
+    ${dp.planOn ? `
+    <button class="tile" style="${tallerDone() ? '' : 'border-color:var(--accent)'}" onclick="tallerStart()">
+      <div class="ic e">🛠</div>
+      <div class="body"><div class="t">EL TALLER · le pilier du jour</div>
+        <div class="d">${tallerDone()
+          ? 'Fait. ' + planFase().t + ' — tu peux continuer librement.'
+          : `${planFase().t} · ${tallerLeft()} items à TAPER, zéro option`}</div></div>
+      <div class="badge ${tallerDone() ? 'zero' : ''}">${tallerDone() ? '✓' : tallerLeft()}</div>
+    </button>` : ''}
+
     <button class="tile" onclick="startReview()">
       <div class="ic a">🃏</div>
       <div class="body"><div class="t">Réviser les cartes</div><div class="d">${due} révision(s) · ${news} nouvelle(s)${dueBacklog() ? ` · <span style="color:var(--accent)">${dueBacklog()} en retard</span>` : ''}</div></div>
       <div class="badge ${(due+news)===0?'zero':''}">${due + news}</div>
     </button>
 
-    ${dayKind() === 'lectura'
+    ${dp.planOn
+      /* Pendant le plan, la lecture n'est plus un dû : 17/18 au diagnostic.
+         Elle reste proposée, sans badge d'alerte et sans « pilier du jour ». */
+      ? ((typeof LECTURAS !== 'undefined') ? (() => { const hoy = lecOfToday(); return `
+    <button class="tile" onclick="setView('lectura')">
+      <div class="ic a">📖</div>
+      <div class="body"><div class="t">Lire · <span class="sub">libre, plus obligatoire</span></div><div class="d">« ${hoy.title} »${lecDone(hoy.id)?' — relecture' : ''} · ta meilleure compétence : 17/18 au diagnostic</div></div>
+      <div class="badge zero">›</div>
+    </button>`; })() : '')
+      : dayKind() === 'lectura'
       ? ((typeof LECTURAS !== 'undefined') ? (() => { const hoy = lecOfToday(), ok = !!S.daily.lec; return `
     <button class="tile" style="${ok?'':'border-color:var(--accent)'}" onclick="setView('lectura')">
       <div class="ic a">📖</div>
