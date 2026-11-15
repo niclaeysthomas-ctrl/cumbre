@@ -1,12 +1,12 @@
 /* CUMBRE — service worker : cache offline (app shell) */
-const CACHE = 'cumbre-v54-plan-c1';
+const CACHE = 'cumbre-v55-import';
 const ASSETS = [
   'index.html',
-  'app.js?v=45',
+  'app.js?v=46',
   'data-diagnostico.js?v=1',
   'diagnostico.js?v=1',
   'data-taller.js?v=1',
-  'plan-c1.js?v=1',
+  'plan-c1.js?v=2',
   'charla.js?v=1',
   'data-escenas.js?v=1',
   'grammar-lot5.js?v=1',

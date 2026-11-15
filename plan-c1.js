@@ -310,11 +310,43 @@ function planDesactivar() {
   render();
 }
 
+/* IMPORTER UN PROFIL.
+   Le profil s'exportait sans pouvoir se réimporter : c'était un trou.
+   Sur iOS, la PWA installée et Safari ont des stockages SÉPARÉS pour la
+   même adresse — passer le diagnostic dans l'une et ouvrir l'autre donne
+   un écran sans profil, sans que rien ne soit perdu. Et un diagnostic
+   coûte cinquante minutes : il ne doit jamais être à repasser pour une
+   raison de plomberie. Le fichier téléchargé suffit à tout remonter. */
+function planImportar(ev) {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    let d;
+    try { d = JSON.parse(r.result); } catch (e) { return toast('Fichier illisible : ce n\'est pas un profil JSON'); }
+    if (!d || d.v !== 1 || !d.tags || !d.niveles) return toast('Ce fichier n\'est pas un profil de diagnostic CUMBRE');
+    if (S.diag && S.diag.ts === d.ts) return toast('C\'est déjà le profil chargé');
+    if (S.diag && !confirm('Remplacer le profil du ' + S.diag.date + ' par celui du ' + d.date + ' ?')) return;
+    S.diag = d; S.plan = null;          // le plan se recalculera sur le nouveau profil
+    if (save()) { toast('Profil du ' + d.date + ' importé'); render(); }
+    else toast('⚠️ Import impossible : stockage plein');
+  };
+  r.readAsText(f);
+}
+
 function renderPlanHome() {
   if (!S.diag) {
     app.innerHTML = `<div class="card"><h2>🎯 Plan C1</h2>
       <div class="sub">Le plan se construit sur ton diagnostic : il répartit le travail quotidien selon ce que tu as réellement raté, compétence par compétence. Sans diagnostic, il n'y a rien à répartir.</div>
-      <button class="btn mt" onclick="setView('diag')">Passer le diagnostic d'abord</button></div>`;
+      <button class="btn mt" onclick="setView('diag')">Passer le diagnostic</button></div>
+      <div class="card">
+        <h2 style="font-size:15px">Tu l'as déjà passé ?</h2>
+        <div class="sub">Alors ne le repasse pas : charge le fichier que tu avais téléchargé (<code>cumbre-diagnostico-AAAA-MM-JJ.json</code>).
+        Sur iPhone, l'app installée sur l'écran d'accueil et Safari ont des stockages <b style="color:var(--txt)">séparés</b> pour la même adresse : un profil passé dans l'une n'apparaît pas dans l'autre, et rien n'est perdu.</div>
+        <label class="btn sec mt" style="display:block;text-align:center;cursor:pointer">⬆︎ Importer un profil
+          <input type="file" accept="application/json,.json" style="display:none" onchange="planImportar(event)">
+        </label>
+      </div>`;
     return;
   }
   const D = S.diag, dia = planDay(), left = planLeft(), f = planFase(), { base, pond } = planPesos();
@@ -388,6 +420,10 @@ function renderPlanHome() {
       <h2 style="font-size:16px">Le ${planEndDate()}</h2>
       <div class="sub">Repasse le diagnostic. Il est conçu pour ça : banque fixe, ordre fixe, mêmes formats. Les deux chiffres à regarder ne sont pas la bande CEFR mais
       <b style="color:var(--txt)">l'écart reconnaissance / production</b> (83 / 71 aujourd'hui) et <b style="color:var(--txt)">le thème</b> (5/12 aujourd'hui). Si ces deux-là bougent, le C1 est réel ; si seule la bande bouge, c'est du bruit.</div>
+      <label class="btn sec mt" style="display:block;text-align:center;cursor:pointer">⬆︎ Importer un profil depuis un fichier
+        <input type="file" accept="application/json,.json" style="display:none" onchange="planImportar(event)">
+      </label>
+      <div class="sub center" style="font-size:12px;margin-top:6px">Utile en changeant d'appareil, ou entre l'app installée et Safari : leurs stockages sont séparés.</div>
       ${planActive() ? `<button class="btn ghost mt" onclick="planDesactivar()">Arrêter le plan</button>` : ''}
     </div>
   `;
